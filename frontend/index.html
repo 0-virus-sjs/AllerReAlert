@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <!-- 문자 인코딩 설정 - 한글 깨짐 방지 -->
+    <meta charset="UTF-8" />
+
+    <!-- 모바일 반응형 설정 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- 검색엔진에 표시될 페이지 설명 -->
+    <meta name="description" content="알레르기 재알림 서비스" />
+
+    <!-- 브라우저 탭 제목 -->
+    <title>AllerReAlert</title>
+
+    <!-- 파비콘 (탭 아이콘) - public/ 폴더에 favicon.svg 파일 넣으면 적용 -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- 오픈그래프 - 카카오/SNS 공유 시 미리보기 정보 -->
+    <!-- <meta property="og:title" content="AllerReAlert" /> -->
+    <!-- <meta property="og:description" content="알레르기 재알림 서비스" /> -->
+    <!-- <meta property="og:image" content="/og-image.png" /> -->
+
+    <!-- 외부 폰트 사용 시 여기에 추가 (예: Google Fonts) -->
+    <!-- <link rel="preconnect" href="https://fonts.googleapis.com" /> -->
+  </head>
+
+  <body>
+    <!-- JavaScript 비활성화 환경에서 보여줄 메시지 -->
+    <noscript>이 앱을 사용하려면 JavaScript를 활성화해주세요.</noscript>
+
+    <!-- React 앱이 마운트되는 루트 요소 - main.jsx에서 이 div를 찾아 렌더링 -->
+    <div id="root"></div>
+
+    <!-- Vite 진입점 - 빌드 시 자동으로 번들링됨 -->
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

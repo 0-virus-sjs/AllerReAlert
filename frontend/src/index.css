@@ -1,0 +1,20 @@
+/* 전역 스타일 - 모든 페이지에 공통 적용 */
+/* bootstrap import 이후에 적용되어 부트스트랩 스타일을 덮어쓸 수 있음 */
+
+/* 기본 여백 초기화 */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  /* 기본 폰트 설정 */
+  /* font-family: 'Noto Sans KR', sans-serif; */
+}
+
+/* 공통으로 쓰이는 커스텀 변수 - 필요 시 :root 블록 추가 */
+/* :root {
+  --primary-color: #변경할색;
+  --secondary-color: #변경할색;
+} */

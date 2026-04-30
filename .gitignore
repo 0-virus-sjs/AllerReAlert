@@ -1,0 +1,11 @@
+# 패키지 설치 폴더 - npm install 하면 자동 생성되므로 커밋 불필요
+node_modules/
+
+# 환경변수 파일 - DB 비밀번호, API 키 등 민감 정보가 담겨있어 절대 커밋 금지
+.env
+
+# React 빌드 결과물 - 배포 시 Docker에서 생성하므로 커밋 불필요
+build/
+
+# macOS 시스템 파일
+.DS_Store
