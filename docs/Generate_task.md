@@ -1,7 +1,8 @@
 # Generate_task.md — SafePlate 개발 작업 목록
 
 > **프로젝트**: 학교급식 알레르기 관리 시스템 (SafePlate)
-> **기술 스택**: React + Bootstrap (Frontend) / Node.js + Express (Backend) / PostgreSQL (DB) / AWS (DevOps)
+> **기술 스택**: React + Bootstrap on **Vercel** (Frontend) / Node.js + Express on **Railway** (Backend) / **Prisma ORM** / **Supabase PostgreSQL** (DB)
+> **아키텍처 흐름**: Client → React App on Vercel → HTTP REST API → Express API Server on Railway → Prisma ORM → Supabase PostgreSQL
 > **기준 PRD**: create_prd.md (학교급식 알레르기 관리 시스템)
 > **작성 원칙**: 기능 단위 분해, API 단위 분리, Phase 1(MVP) 우선, 개발 순서 고려 정렬
 
@@ -19,7 +20,7 @@
 ## 🗺️ 개발 순서 개요 (마일스톤)
 
 ```
-M0. 프로젝트 셋업 & 인프라 (T-001 ~ T-008)
+M0. 프로젝트 셋업 & PaaS 인프라 (T-001 ~ T-008)
 M1. DB 스키마 & 마스터 데이터 (T-010 ~ T-018)
 M2. 인증·사용자·RBAC (T-020 ~ T-029)
 M3. 식단(MealPlan) CRUD & 알레르기 태깅 (T-030 ~ T-039)
@@ -35,54 +36,54 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 
 ---
 
-# M0. 프로젝트 셋업 & 인프라
+# M0. 프로젝트 셋업 & PaaS 인프라
 
 ## T-001. [INFRA] 모노레포 / 폴더 구조 셋업
-- **설명**: `/client` (React) + `/server` (Express) 구조로 Git 저장소 초기화. ESLint·Prettier·EditorConfig 공통 설정. `.env.example` 작성.
+- **설명**: `/client` (React) + `/server` (Express) 구조로 Git 저장소 초기화. ESLint·Prettier·EditorConfig 공통 설정. `.env.example` 작성. `client/vercel.json`, `server/railway.json` 골격 추가.
 - **우선순위**: High
 - **난이도**: 2 SP
 - **선행 작업**: -
 
 ## T-002. [FE] React 프로젝트 초기화 (Vite + Bootstrap)
-- **설명**: `Vite + React 18` 프로젝트 생성. `react-bootstrap`, `bootstrap`, `react-router-dom`, `axios`, `@tanstack/react-query`, `zustand` 설치. 기본 레이아웃과 라우팅 골격 구성.
+- **설명**: `Vite + React 18 + TypeScript` 프로젝트 생성. `react-bootstrap`, `bootstrap`, `react-router-dom`, `axios`, `@tanstack/react-query`, `zustand` 설치. 기본 레이아웃과 라우팅 골격 구성. Vercel 배포 호환 빌드 설정(`vite build` → `dist`).
 - **우선순위**: High
 - **난이도**: 2 SP
 - **선행 작업**: T-001
 
 ## T-003. [BE] Express 프로젝트 초기화
-- **설명**: Express 4 + 미들웨어 (`helmet`, `cors`, `morgan`, `compression`, `cookie-parser`, `express-rate-limit`) 셋업. 공통 응답 포맷 `{ success, data, error, meta }` 미들웨어 구현. 글로벌 에러 핸들러 작성.
+- **설명**: Express 4 + TypeScript + 미들웨어 (`helmet`, `cors`, `morgan`/`pino-http`, `compression`, `cookie-parser`, `express-rate-limit`, `zod` 검증) 셋업. 공통 응답 포맷 `{ success, data, error, meta }` 미들웨어 구현. 글로벌 에러 핸들러 작성. `/api/v1/health` 헬스체크 엔드포인트 추가 (Railway 헬스체크용).
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-001
 
-## T-004. [DB] PostgreSQL + ORM 셋업 (Prisma 또는 Sequelize)
-- **설명**: 로컬 Docker로 PostgreSQL 14+ 기동. Prisma(권장) 도입, 마이그레이션 도구 셋업. 시드 데이터 스크립트 골격 작성.
+## T-004. [DB] Supabase 프로젝트 생성 + Prisma 연결
+- **설명**: Supabase 신규 프로젝트(dev) 생성 → Connection String 두 종류 확보 (PgBouncer Pooled `DATABASE_URL`, Direct `DIRECT_URL`). Prisma 5 도입 (`schema.prisma`에 `datasource db { url, directUrl }` 설정), 마이그레이션 도구 셋업, 시드 스크립트 골격 작성. 로컬 개발용 `.env`에 두 URL 등록.
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-003
 
-## T-005. [DEVOPS] AWS 계정 / VPC / 보안그룹 설계
-- **설명**: AWS 계정 IAM 정책 설계. VPC, 퍼블릭/프라이빗 서브넷, NAT Gateway, 보안그룹 설계 문서화. (실제 프로비저닝은 T-115에서)
-- **우선순위**: High
-- **난이도**: 3 SP
-- **선행 작업**: -
-
-## T-006. [DEVOPS] CI/CD 파이프라인 (GitHub Actions)
-- **설명**: PR 시 lint·test·build 실행. `develop` 브랜치 머지 시 dev 환경 자동 배포. `main` 머지 시 prod 배포(승인 게이트 포함).
-- **우선순위**: High
-- **난이도**: 5 SP
-- **선행 작업**: T-002, T-003
-
-## T-007. [BE] 로깅·모니터링 기반 (Winston + CloudWatch)
-- **설명**: `winston` 로거 구성, 요청 ID 기반 trace, 민감정보(알레르기·이메일 등) 마스킹 처리. CloudWatch Logs 연동.
-- **우선순위**: High
-- **난이도**: 3 SP
-- **선행 작업**: T-003
-
-## T-008. [BE] 환경 설정 & 비밀 관리 (AWS Secrets Manager)
-- **설명**: dotenv + AWS Secrets Manager 분기. JWT 시크릿, DB 자격증명, AI API 키, FCM 키 등 관리.
+## T-005. [DEVOPS] Vercel / Railway / Supabase 프로젝트 셋업 (환경별 분리)
+- **설명**: Vercel 프로젝트 생성 후 `client/`를 Root로 지정, Preview/Production 환경 변수 등록. Railway 신규 프로젝트 생성 후 `server/`를 Root로 지정, Variables 등록 + 헬스체크 경로 `/api/v1/health` 설정. 환경별로 **Supabase 프로젝트 분리**(dev / staging / prod). 환경별 URL·키 매핑 문서화. (실제 도메인·HTTPS는 T-117에서)
 - **우선순위**: High
 - **난이도**: 2 SP
+- **선행 작업**: -
+
+## T-006. [DEVOPS] CI 파이프라인 (GitHub Actions) + 자동 배포 연동
+- **설명**: PR 시 lint·type-check·test 실행. Vercel은 PR마다 Preview 자동 배포. Railway는 `develop` 머지 시 staging 서비스 자동 배포, `main` 머지 시 prod 서비스 자동 배포(Release 단계에서 `prisma migrate deploy` 실행). main 배포에 환경 보호 규칙(reviewer 승인) 적용.
+- **우선순위**: High
+- **난이도**: 3 SP
+- **선행 작업**: T-002, T-003, T-005
+
+## T-007. [BE] 로깅·모니터링 기반 (Pino + Railway Logs + Sentry)
+- **설명**: `pino` 또는 `winston` 로거 구성, 요청 ID 기반 trace, 민감정보(알레르기·이메일·비밀번호 등) 마스킹 처리. 로그는 stdout으로 출력 → Railway가 자동 수집. `@sentry/node`로 에러 추적, FE는 `@sentry/react`. (NFR-OPS-001 가용률 모니터링 기반)
+- **우선순위**: High
+- **난이도**: 3 SP
+- **선행 작업**: T-003
+
+## T-008. [BE] 환경 변수 / 비밀 관리 (Railway / Vercel Variables)
+- **설명**: 로컬은 `dotenv` + `.env`, 운영은 **Railway Variables**(서버 시크릿) / **Vercel Environment Variables**(클라이언트 `VITE_*` 키) 사용. JWT 시크릿, `DATABASE_URL`, `DIRECT_URL`, AI API 키, Resend 키, VAPID 키, Sentry DSN 등 키 목록 정의. `.env.example` 동기화 룰 PR 체크리스트화.
+- **우선순위**: High
+- **난이도**: 1 SP
 - **선행 작업**: T-005
 
 ---
@@ -90,13 +91,13 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 # M1. DB 스키마 & 마스터 데이터
 
 ## T-010. [DB] School / User 테이블 스키마
-- **설명**: `schools`(id, name, address, grade_structure), `users`(id, school_id FK, role enum, name, email, phone, grade_class, password_hash, created_at). 인덱스: `users(email)`, `users(school_id, role)`.
+- **설명**: `schools`(id, name, address, grade_structure), `users`(id, school_id FK, role enum, name, email, phone, grade_class, password_hash, created_at). 인덱스: `users(email)`, `users(school_id, role)`. Prisma `schema.prisma` 모델 정의 → `prisma migrate dev`.
 - **우선순위**: High
 - **난이도**: 2 SP
 - **선행 작업**: T-004
 
 ## T-011. [DB] Allergen / UserAllergen 테이블 스키마
-- **설명**: `allergens`(id, name, code, icon_url) — 식약처 19종 마스터. `user_allergens`(id, user_id FK, allergen_id FK, status enum[pending/confirmed/rejected], approved_by FK→users, created_at). 알레르기 정보는 컬럼 레벨 암호화(AES-256) 적용.
+- **설명**: `allergens`(id, name, code, icon_url) — 식약처 19종 마스터. `user_allergens`(id, user_id FK, allergen_id FK, status enum[pending/confirmed/rejected], approved_by FK→users, created_at). 알레르기 정보는 컬럼 레벨 암호화(AES-256, `crypto` 모듈) 적용 — 애플리케이션 레이어 암호화/복호화 헬퍼 작성.
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-010
@@ -126,21 +127,21 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 - **선행 작업**: T-010
 
 ## T-016. [DB] AuditLog / SystemLog 스키마
-- **설명**: `audit_logs`(id, user_id, action, target_type, target_id, ip, before JSONB, after JSONB, created_at). 1년 보관 정책.
+- **설명**: `audit_logs`(id, user_id, action, target_type, target_id, ip, before JSONB, after JSONB, created_at). 1년 보관 정책. 보관 기간 초과분 정리 잡(node-cron, 일 1회) 구상.
 - **우선순위**: Medium
 - **난이도**: 2 SP
 - **선행 작업**: T-010
 
 ## T-017. [DB] 시드 데이터 — 알레르기 19종 + 샘플 학교/사용자
-- **설명**: 식약처 알레르기 유발물질 19종(난류, 우유, 메밀, 땅콩, 대두, 밀 등) 시드. 개발용 샘플 학교 1곳, 역할별 테스트 계정 5종.
+- **설명**: 식약처 알레르기 유발물질 19종(난류, 우유, 메밀, 땅콩, 대두, 밀 등) Prisma seed 스크립트로 시드. 개발용 샘플 학교 1곳, 역할별 테스트 계정 5종. `npx prisma db seed`로 재현 가능하도록 idempotent하게 작성.
 - **우선순위**: High
 - **난이도**: 2 SP
 - **선행 작업**: T-011
 
-## T-018. [DB] 마이그레이션 자동화 & 백업 정책
-- **설명**: Prisma migrate 운영 스크립트, AWS RDS 자동 스냅샷(일 1회, 30일 보관) 설정. Point-in-Time Recovery 활성화. (NFR-OPS-002)
+## T-018. [DB] 마이그레이션 자동화 & Supabase 백업 정책
+- **설명**: 운영 배포에서 `prisma migrate deploy`를 Railway Pre-Deploy(Release) 단계에 등록. **Supabase 자동 백업**(Pro 플랜 일일 백업 + PITR) 활성화 검증. 30일 보관(NFR-OPS-002) 충족을 위해 주 1회 `pg_dump` 스냅샷을 Supabase Storage(또는 별도 S3 호환) 버킷에 업로드하는 node-cron 잡 작성. 복구 절차 문서화.
 - **우선순위**: High
-- **난이도**: 2 SP
+- **난이도**: 3 SP
 - **선행 작업**: T-005, T-017
 
 ---
@@ -160,7 +161,7 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 - **선행 작업**: T-020
 
 ## T-022. [BE] API: `POST /auth/login` / `POST /auth/refresh` / `POST /auth/logout`
-- **설명**: 로그인 시 Access·Refresh 발급(Refresh는 httpOnly 쿠키). 30분 무활동 시 Access 만료(NFR-SEC-004). 동시 로그인 제한(이전 Refresh 무효화).
+- **설명**: 로그인 시 Access·Refresh 발급(Refresh는 httpOnly + Secure + SameSite=None 쿠키 — Vercel↔Railway 크로스 도메인 대응). 30분 무활동 시 Access 만료(NFR-SEC-004). 동시 로그인 제한(이전 Refresh 무효화).
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-020
@@ -184,7 +185,7 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 - **선행 작업**: T-024
 
 ## T-026. [FE] 라우팅 & 인증 가드
-- **설명**: `react-router-dom` 라우터 구성. `<ProtectedRoute role="...">` 컴포넌트로 역할 기반 접근 제어. 토큰 만료 자동 refresh 인터셉터.
+- **설명**: `react-router-dom` 라우터 구성. `<ProtectedRoute role="...">` 컴포넌트로 역할 기반 접근 제어. Axios 인터셉터: 토큰 만료 시 자동 refresh + Vercel↔Railway 크로스 도메인 쿠키 전송(`withCredentials: true`).
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-002
@@ -212,7 +213,7 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 # M3. 식단(MealPlan) CRUD & 알레르기 태깅 (영양사)
 
 ## T-030. [BE] API: `POST /meals` (식단 생성)
-- **설명**: 영양사 권한. `date` 단위 또는 월간 일괄 생성 지원. 트랜잭션으로 MealPlan + MealItem(들) 함께 저장. status=draft.
+- **설명**: 영양사 권한. `date` 단위 또는 월간 일괄 생성 지원. **Prisma `$transaction`**으로 MealPlan + MealItem(들) 함께 저장. status=draft.
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-012, T-024
@@ -224,7 +225,7 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 - **선행 작업**: T-030, T-016
 
 ## T-032. [BE] API: `PUT /meals/:id/publish` (식단 공개)
-- **설명**: status: draft → published, published_at 기록. 예약 공개(`scheduled_at`) 지원 — Bull Queue 또는 EventBridge로 처리.
+- **설명**: status: draft → published, published_at 기록. 예약 공개(`scheduled_at`) 지원 — **node-cron 기반 정기 폴링 잡** 또는 옵션으로 **BullMQ + Railway Redis Plugin**. 단순 케이스는 `setTimeout` 대신 cron으로 처리해 재기동 안전성 확보.
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-030
@@ -236,7 +237,7 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 - **선행 작업**: T-012
 
 ## T-034. [BE] API: `GET /meals?school_id=&month=` / `GET /meals/:id`
-- **설명**: 월간/일간 조회. 응답에 MealItem + 알레르기 태그 포함. 캐싱(Redis 또는 in-memory) 5분.
+- **설명**: 월간/일간 조회. 응답에 MealItem + 알레르기 태그 포함. **In-memory 캐시(`node-cache`) 5분** — Phase 2에서 트래픽 증가 시 Railway Redis Plugin 도입 가능.
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-030
@@ -276,7 +277,7 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 # M4. 알레르기 등록 & 식단 조회 (이용자)
 
 ## T-040. [BE] API: `GET /users/me/allergens`
-- **설명**: 본인 알레르기 목록 + 승인 상태 반환. 복호화 후 응답.
+- **설명**: 본인 알레르기 목록 + 승인 상태 반환. AES-256 복호화 후 응답.
 - **우선순위**: High
 - **난이도**: 2 SP
 - **선행 작업**: T-011, T-024
@@ -318,7 +319,7 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 - **선행 작업**: T-029
 
 ## T-047. [BE] 일간/월간 식단 PDF 다운로드 API: `GET /meals/export?date=&format=pdf`
-- **설명**: 장애 대비 수동 전환 수단(NFR-OPS-003). `pdfkit` 또는 `puppeteer`로 PDF 생성. 본인 알레르기 하이라이트 포함.
+- **설명**: 장애 대비 수동 전환 수단(NFR-OPS-003). `pdfkit` 또는 `puppeteer`로 PDF 생성. 본인 알레르기 하이라이트 포함. (Railway에서 Puppeteer 사용 시 Chromium 빌드팩 필요 — Nixpacks `apt` 추가)
 - **우선순위**: High
 - **난이도**: 5 SP
 - **선행 작업**: T-034
@@ -342,7 +343,7 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 > **PRD §11.1**: 이 모듈의 정확성·안정성이 시스템 최우선 가치.
 
 ## T-050. [BE] 알림 발송 추상화 레이어
-- **설명**: `NotificationProvider` 인터페이스 — Push/Email/SMS 구현체 분리. AWS SNS(SMS), SES(Email), FCM(Push) 어댑터.
+- **설명**: `NotificationProvider` 인터페이스 — Email/Push 구현체 분리. **Resend 어댑터(이메일)**, **web-push 라이브러리 + VAPID 어댑터(웹 푸시)** 작성. SMS(Twilio)는 Phase 3 옵션으로 인터페이스만 예약.
 - **우선순위**: High
 - **난이도**: 5 SP
 - **선행 작업**: T-008, T-015
@@ -353,8 +354,8 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 - **난이도**: 8 SP
 - **선행 작업**: T-012, T-011
 
-## T-052. [BE] 일일 알림 스케줄러 (cron + Bull Queue)
-- **설명**: 학교별 급식시간 - N시간 기준 트리거. T-051 호출 → Notification 생성 → T-050으로 발송. 5분 이내 전체 발송 보장(NFR-PFM-004). 실패 재시도 3회.
+## T-052. [BE] 일일 알림 스케줄러 (node-cron, Railway 상주 프로세스)
+- **설명**: Railway는 컨테이너 상주 프로세스를 지원하므로 `node-cron`으로 학교별 급식시간 - N시간 기준 트리거. T-051 호출 → Notification 생성 → T-050으로 발송. 5분 이내 전체 발송 보장(NFR-PFM-004). 실패 시 지수 백오프 재시도 3회. 인스턴스 다중 배포 대비 **DB 기반 분산 락**(advisory lock) 또는 단일 인스턴스 운영. (대규모 트래픽 시 BullMQ + Railway Redis로 마이그레이션 가능하도록 큐 인터페이스 추상화)
 - **우선순위**: High
 - **난이도**: 5 SP
 - **선행 작업**: T-050, T-051
@@ -371,20 +372,20 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 - **난이도**: 2 SP
 - **선행 작업**: T-015
 
-## T-055. [BE] API: `PUT /notifications/settings` (알림 채널·시간 설정)
-- **설명**: 푸시/이메일/SMS 채널 토글, 알림 시간(예: 급식 1시간 전) 설정. (FR-ALM-003은 Phase 2지만 데이터는 Phase 1부터 저장.)
+## T-055. [BE] API: `PUT /notifications/settings` + `POST /notifications/web-push/subscribe`
+- **설명**: 푸시/이메일/(SMS Phase 3) 채널 토글, 알림 시간(예: 급식 1시간 전) 설정. 웹 푸시 구독 객체(endpoint, p256dh, auth) 저장. (FR-ALM-003은 Phase 2지만 데이터는 Phase 1부터 저장.)
 - **우선순위**: High
-- **난이도**: 2 SP
-- **선행 작업**: T-025
+- **난이도**: 3 SP
+- **선행 작업**: T-025, T-050
 
 ## T-056. [FE] SCR-007 알림 센터
-- **설명**: 알림 목록(읽음/미읽음 필터, 타입 필터). 알림 클릭 시 해당 식단 상세로 라우팅. WebSocket 또는 폴링으로 실시간 갱신.
+- **설명**: 알림 목록(읽음/미읽음 필터, 타입 필터). 알림 클릭 시 해당 식단 상세로 라우팅. **Service Worker 등록 + 웹 푸시 구독 동의 플로우**. 실시간 갱신은 폴링(30초) 우선, 추후 SSE/WebSocket 검토.
 - **우선순위**: High
 - **난이도**: 5 SP
-- **선행 작업**: T-054
+- **선행 작업**: T-054, T-055
 
 ## T-057. [QA] 알림 엔진 통합 테스트 시나리오
-- **설명**: PRD §14.1의 시나리오 자동화 — (1) 알레르기 등록 → 식단 알림 (2) 공개 식단 수정 → 변경 알림 (3) 보호자 미승인 → 알림 미발송. Jest + Supertest.
+- **설명**: PRD의 핵심 시나리오 자동화 — (1) 알레르기 등록 → 식단 알림 (2) 공개 식단 수정 → 변경 알림 (3) 보호자 미승인 → 알림 미발송. **Vitest + Supertest**, 테스트 DB는 Supabase 별도 스키마(`test`) 또는 별도 프로젝트.
 - **우선순위**: High
 - **난이도**: 5 SP
 - **선행 작업**: T-052, T-053
@@ -393,14 +394,14 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 
 # M6. AI 식단 생성·대체 제안
 
-## T-060. [AI] AI Provider 추상화 (Claude API 또는 OpenAI)
-- **설명**: `AIProvider` 인터페이스. Claude API 우선 어댑터 구현. 타임아웃·재시도·토큰 사용량 로깅.
+## T-060. [AI] AI Provider 추상화 (Claude API 우선, OpenAI 폴백)
+- **설명**: `AIProvider` 인터페이스. Anthropic Claude API 어댑터 우선 구현, OpenAI 폴백 어댑터. 타임아웃·재시도·토큰 사용량 로깅(Sentry breadcrumbs).
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-008
 
 ## T-061. [AI] 정규 식단 생성 프롬프트 빌더
-- **설명**: PRD §7.4 정규 식단 프롬프트 구조 구현. 입력 조건(기간·예산·계절·영양 기준·선호/제외) → 시스템·유저 프롬프트 조립. JSON 출력 강제.
+- **설명**: PRD §7.4 정규 식단 프롬프트 구조 구현. 입력 조건(기간·예산·계절·영양 기준·선호/제외) → 시스템·유저 프롬프트 조립. JSON 출력 강제 (Claude의 JSON mode 또는 strict schema 프롬프트).
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-060
@@ -412,13 +413,13 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 - **선행 작업**: T-060
 
 ## T-063. [AI] AI 응답 검증·정규화 레이어
-- **설명**: AI JSON 응답 schema 검증(Zod). 영양 기준 충족 여부 자동 검증. 알레르기 식재료 누설 검사 → 실패 시 재요청 또는 에러.
+- **설명**: AI JSON 응답 schema 검증(**Zod**). 영양 기준 충족 여부 자동 검증. 알레르기 식재료 누설 검사 → 실패 시 재요청 또는 에러.
 - **우선순위**: High
 - **난이도**: 5 SP
 - **선행 작업**: T-061, T-062
 
 ## T-064. [BE] API: `POST /ai/generate-meal-plan`
-- **설명**: 영양사 호출. 응답 30초 이내(NFR-PFM-003). 비동기 처리(Job ID 반환 → 폴링)로 클라이언트 UX 보장.
+- **설명**: 영양사 호출. 응답 30초 이내(NFR-PFM-003). **장시간 작업 처리 옵션**: (a) Railway 단일 요청에서 동기 처리 (Express의 기본 timeout 늘림) 또는 (b) Job ID 발급 후 polling(node-cron + DB 작업 큐). MVP는 (a) 동기 처리로 시작.
 - **우선순위**: High
 - **난이도**: 5 SP
 - **선행 작업**: T-061, T-063
@@ -436,7 +437,7 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 - **선행 작업**: T-063
 
 ## T-067. [FE] SCR-011 AI 식단 생성 화면
-- **설명**: 조건 입력 폼 → 생성 버튼 → 진행률 인디케이터 → 결과 캘린더 미리보기 → 일괄 적용 또는 수정. 비동기 폴링 UI.
+- **설명**: 조건 입력 폼 → 생성 버튼 → 진행률 인디케이터 → 결과 캘린더 미리보기 → 일괄 적용 또는 수정. 동기 호출 시 로딩 UX, 비동기 전환 시 폴링 UI.
 - **우선순위**: High
 - **난이도**: 8 SP
 - **선행 작업**: T-064, T-037
@@ -458,19 +459,19 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 - **선행 작업**: T-014
 
 ## T-072. [BE] API: `POST /surveys/:id/responses` (응답·투표)
-- **설명**: 1인 1표, 마감 전까지 변경 가능(UPSERT). 마감 후 변경 불가(PRD §11.4).
+- **설명**: 1인 1표, 마감 전까지 변경 가능(Prisma `upsert`). 마감 후 변경 불가(PRD §11.4).
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-071
 
 ## T-073. [BE] API: `PUT /surveys/:id/close` & 자동 마감 스케줄러
-- **설명**: 수동/자동 마감. 마감 시 결과 자동 집계 → 영양사 대시보드 캐시 갱신. (FR-SVY-003)
+- **설명**: 수동/자동 마감. node-cron 기반 정기 잡(매 5분)으로 마감 시각 도래 설문 close 처리 → 결과 자동 집계 → 영양사 대시보드 캐시 무효화. (FR-SVY-003)
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-072
 
 ## T-074. [BE] 설문 알림 트리거 + 마감 전 리마인더
-- **설명**: 설문 생성 시 대상자에게 즉시 참여 알림(FR-ALM-005). 마감 24시간/2시간 전 미응답자 리마인더.
+- **설명**: 설문 생성 시 대상자에게 즉시 참여 알림(FR-ALM-005). 마감 24시간/2시간 전 미응답자 리마인더(node-cron).
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-070, T-052
@@ -488,7 +489,7 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 - **선행 작업**: T-071, T-073
 
 ## T-077. [QA] 설문 라이프사이클 E2E 테스트
-- **설명**: 설문 생성 → 알림 → 응답 → 마감 → 집계 → 영양사 확인. Playwright 시나리오.
+- **설명**: 설문 생성 → 알림 → 응답 → 마감 → 집계 → 영양사 확인. Playwright 시나리오 (Vercel Preview URL 대상).
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-075, T-076
@@ -498,7 +499,7 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 # M8. 수요 집계 대시보드 (영양사)
 
 ## T-080. [BE] API: `GET /analytics/allergy-overview?school_id=`
-- **설명**: 학교 내 알레르기 유형별 보유 인원 분포. 캐싱 1시간. (FR-NTR-006)
+- **설명**: 학교 내 알레르기 유형별 보유 인원 분포. In-memory 캐시 1시간. (FR-NTR-006)
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-011
@@ -602,7 +603,7 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 - **선행 작업**: T-101
 
 ## T-104. [FE] 알림 채널·시간 설정 화면 (FR-ALM-003)
-- **설명**: 푸시/이메일/SMS 토글, 알림 시간 슬라이더. 프로필 화면 내 섹션.
+- **설명**: 푸시/이메일/(SMS Phase 3) 토글, 알림 시간 슬라이더. 프로필 화면 내 섹션. 푸시 구독 동의 다이얼로그.
 - **우선순위**: Medium
 - **난이도**: 2 SP
 - **선행 작업**: T-055
@@ -630,55 +631,59 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 # M11. 비기능 / QA / 배포
 
 ## T-110. [BE] 보안 강화 (NFR-SEC-001~004)
-- **설명**: AES-256 컬럼 암호화 검증, TLS(ALB), helmet CSP, rate limit, SQL Injection 방어(Prisma), XSS sanitize, 민감정보 로그 마스킹 점검.
+- **설명**: AES-256 컬럼 암호화 검증, **TLS는 Vercel·Railway·Supabase 모두 기본 제공**, helmet CSP, CORS 화이트리스트(`CORS_ORIGIN`에 Vercel 도메인만), `express-rate-limit`로 IP당 분당 호출 제한, SQL Injection 방어(Prisma 파라미터 바인딩), XSS sanitize, 민감정보 로그 마스킹 점검.
 - **우선순위**: High
 - **난이도**: 5 SP
 - **선행 작업**: T-007, T-011
 
 ## T-111. [QA] 단위 / 통합 테스트
-- **설명**: 서비스 레이어·API 레이어 Jest + Supertest. 핵심 모듈(알림 엔진·AI 검증·RBAC) 90% 커버리지.
+- **설명**: 서비스 레이어·API 레이어 **Vitest + Supertest**. 핵심 모듈(알림 엔진·AI 검증·RBAC) 90% 커버리지. 통합 테스트는 Supabase 테스트 스키마(`test`) 또는 별도 프로젝트로 격리.
 - **우선순위**: High
 - **난이도**: 8 SP
 - **선행 작업**: T-052, T-063, T-024
 
 ## T-112. [QA] E2E 테스트 (Playwright)
-- **설명**: PRD §14.1 5종 시나리오 자동화. CI에서 ephemeral DB로 야간 실행.
+- **설명**: 핵심 5종 시나리오 자동화. CI에서 Vercel Preview + Railway Staging URL 대상으로 야간 실행.
 - **우선순위**: High
 - **난이도**: 5 SP
 - **선행 작업**: T-057, T-077
 
 ## T-113. [QA] 부하 테스트 (k6)
-- **설명**: 동시 500명 시뮬레이션, 핵심 API p95 응답 시간 검증(NFR-PFM-002).
+- **설명**: 동시 500명 시뮬레이션, 핵심 API p95 응답 시간 검증(NFR-PFM-002). Railway 인스턴스 스펙(메모리·CPU)과 Supabase 커넥션 풀 한계 함께 모니터링.
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-110
 
-## T-114. [DEVOPS] AWS 인프라 프로비저닝 (Terraform)
-- **설명**: VPC, ECS Fargate(BE), CloudFront + S3(FE 정적 호스팅), RDS PostgreSQL Multi-AZ, ElastiCache Redis, ALB, Route53, ACM. IaC로 dev/staging/prod 환경 분리.
-- **우선순위**: High
-- **난이도**: 13 SP
-- **선행 작업**: T-005
-
-## T-115. [DEVOPS] 모니터링 / 알림 (CloudWatch + Sentry)
-- **설명**: CloudWatch 대시보드, ECS·RDS 메트릭, 5xx/지연 알람, Sentry 에러 추적. 가용률 99.5% 모니터링(NFR-OPS-001).
+## T-114. [DEVOPS] PaaS 환경 프로비저닝 & 배포 파이프라인 마무리
+- **설명**: Vercel(client), Railway(server), Supabase(db) 3종을 dev/staging/prod 3환경으로 정합성 있게 구성.
+  - **Vercel**: Production 도메인·Preview 도메인 매핑, 환경별 `VITE_*` 변수.
+  - **Railway**: 서비스별 빌드 커맨드(`npm ci && npx prisma generate && npm run build`), Pre-Deploy(`prisma migrate deploy`), Start(`node dist/server.js`), 헬스체크(`/api/v1/health`), 인스턴스 스펙·자동 재시작 설정.
+  - **Supabase**: 환경별 프로젝트 분리, Pooled/Direct URL 두 종류를 Railway에 등록, RLS는 사용하지 않고 애플리케이션 레이어에서 권한 처리(서비스 역할 키만 사용).
+  - 배포 절차서·롤백 절차서 작성.
 - **우선순위**: High
 - **난이도**: 5 SP
+- **선행 작업**: T-005, T-006
+
+## T-115. [DEVOPS] 모니터링 / 알림 (Sentry + Railway Metrics + Vercel Analytics)
+- **설명**: Sentry 프로젝트 분리(FE/BE), 릴리즈 추적, source map 업로드. Railway Metrics 대시보드(CPU·메모리·요청 수·5xx) + 슬랙 webhook 알림 룰. Vercel Analytics(웹 바이탈·트래픽). 가용률 99.5% 모니터링(NFR-OPS-001) — 외부 uptime 모니터(예: UptimeRobot)로 `/api/v1/health` 1분 간격 헬스체크.
+- **우선순위**: High
+- **난이도**: 3 SP
 - **선행 작업**: T-114
 
 ## T-116. [DEVOPS] 백업·복구 / DR
-- **설명**: RDS 자동 스냅샷(일 1회·30일 보관), S3 백업 버전 관리. 복구 절차 문서화 + 분기 1회 리허설(NFR-OPS-002, OPS-003).
+- **설명**: Supabase 자동 백업 활성화 검증(Pro 플랜 일일 백업 + PITR), 주 1회 `pg_dump` 외부 보관(NFR-OPS-002 30일 만족), Vercel·Railway는 이전 배포 즉시 롤백 가능 — 롤백 절차 문서화. 분기 1회 복구 리허설(NFR-OPS-003).
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-114
 
 ## T-117. [DEVOPS] 도메인 / HTTPS / WAF
-- **설명**: Route53 도메인 연결, ACM 발급, ALB HTTPS Only, AWS WAF(SQLi·XSS 룰).
+- **설명**: 커스텀 도메인 연결 — 프론트는 Vercel(`safeplate.kr`), API는 Railway(`api.safeplate.kr`). 두 곳 모두 HTTPS·인증서 자동 갱신. **WAF 옵션**: 비용·운영을 고려해 (a) 도메인을 Cloudflare 프록시 뒤에 두고 Cloudflare WAF/Rate Limit 사용 또는 (b) 애플리케이션 레이어 미들웨어(`express-rate-limit`, `helmet`)로 우선 대응. MVP는 (b)로 시작 → 트래픽 증가 시 (a) 추가.
 - **우선순위**: High
-- **난이도**: 3 SP
+- **난이도**: 2 SP
 - **선행 작업**: T-114
 
 ## T-118. [QA] UAT & 출시 체크리스트
-- **설명**: PRD §13.4 보안 체크리스트 + RBAC 매트릭스 + 성능 기준 + 접근성 검증. 영양사·관리자·이용자 시나리오 UAT 1주.
+- **설명**: 보안 체크리스트 + RBAC 매트릭스 + 성능 기준 + 접근성 검증. 영양사·관리자·이용자 시나리오 UAT 1주.
 - **우선순위**: High
 - **난이도**: 5 SP
 - **선행 작업**: T-111, T-112, T-113, T-117
@@ -689,42 +694,47 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 
 | Phase | Task 수 | 합계 SP | 비고 |
 |-------|--------|---------|------|
-| M0 셋업·인프라 | 8 | 23 | |
-| M1 DB | 9 | 19 | |
+| M0 셋업·PaaS 인프라 | 8 | 19 | PaaS 채택으로 -4 SP |
+| M1 DB | 9 | 20 | Supabase 백업 잡 +1 SP |
 | M2 인증·RBAC | 10 | 30 | |
 | M3 식단 관리(영양사) | 10 | 39 | |
 | M4 식단 조회(이용자) | 10 | 35 | |
-| M5 알림 엔진 ⭐ | 8 | 35 | 핵심 |
+| M5 알림 엔진 ⭐ | 8 | 36 | 웹 푸시 구독 +1 SP |
 | M6 AI | 8 | 32 | |
 | M7 설문·투표 | 8 | 28 | |
 | M8 수요 집계 | 6 | 24 | |
 | M9 관리자 | 6 | 22 | |
 | M10 Phase 2 | 8 | 26 | |
-| M11 비기능·QA·배포 | 9 | 50 | |
-| **총계** | **100** | **약 363 SP** | 1 SP ≒ 0.5d → 약 180일 (5인 팀 기준 약 36주) |
+| M11 비기능·QA·배포 | 9 | 36 | Terraform/AWS 제거로 -14 SP |
+| **총계** | **100** | **약 347 SP** | 1 SP ≒ 0.5d → 약 174일 (5인 팀 기준 약 35주) |
+
+> AWS·Terraform 인프라 작업이 빠지고 PaaS 자동화로 전환되면서 M0/M11 합계 SP가 약 18 SP 감소했습니다. 대신 웹 푸시 구독·Supabase 백업 잡 등 일부 신규 작업이 추가되어 순감 약 16 SP입니다.
 
 ---
 
 # ⚠️ 주요 가정 (Assumption)
 
 1. **AI 모델**: Anthropic Claude API 우선 사용. OpenAI는 폴백.
-2. **알림 채널**: Phase 1에서는 푸시(FCM) + 이메일(AWS SES) 2채널, SMS(AWS SNS)는 Phase 2.
-3. **모바일**: 별도 네이티브 앱 없이 PWA 기반 반응형 웹.
+2. **알림 채널**: Phase 1에서는 **웹 푸시(VAPID)** + **이메일(Resend)** 2채널, **SMS는 Phase 3** (Twilio 등 별도 PaaS 연동).
+3. **모바일**: 별도 네이티브 앱 없이 PWA 기반 반응형 웹 — Service Worker로 웹 푸시 처리.
 4. **다국어**: Phase 1 한국어만 — i18n 구조(`react-i18next`)는 미리 도입.
 5. **결제·과금**: 본 PRD에 미언급 — 대상 외.
 6. **Bootstrap 버전**: 5.x + `react-bootstrap` 2.x.
-7. **PostgreSQL**: AWS RDS PostgreSQL 14+ Multi-AZ.
-8. **ORM**: Prisma 권장 (마이그레이션 도구·타입 안정성).
-9. **인증**: JWT(Access 15분 / Refresh 7일 httpOnly 쿠키). OAuth 미적용.
+7. **데이터베이스**: **Supabase PostgreSQL** (관리형 Postgres, PgBouncer Pooled + Direct 두 종류 연결). 자체 운영 RDS·Multi-AZ는 미사용.
+8. **ORM**: **Prisma 5** (`schema.prisma`에 `directUrl` 명시 필수).
+9. **인증**: JWT(Access 15분 / Refresh 7일 httpOnly + Secure + SameSite=None 쿠키 — Vercel↔Railway 크로스 도메인 대응). OAuth 미적용. **Supabase Auth는 사용하지 않음**(Express에서 자체 JWT 발급).
 10. **알레르기 19종**: 식약처 식품위생법 시행규칙 기준 (난류·우유·메밀·땅콩·대두·밀·고등어·게·새우·돼지고기·복숭아·토마토·아황산류·호두·닭고기·쇠고기·오징어·조개류·잣).
+11. **호스팅**: **Frontend → Vercel**, **Backend → Railway**, **DB → Supabase**. AWS·GCP·자체 VPC 미사용.
+12. **큐/스케줄**: Phase 1은 **node-cron** (Railway 상주 프로세스). 트래픽 증가 시 BullMQ + Railway Redis Plugin으로 마이그레이션.
+13. **파일 저장**: 식단 이미지 등은 **Supabase Storage**.
 
 ---
 
 # 🚦 권장 진행 순서 (Critical Path)
 
 ```
-M0 (셋업)
-  → M1 (DB)
+M0 (PaaS 셋업)
+  → M1 (Supabase + Prisma 스키마)
     → M2 (인증·RBAC) ─┬→ M3 (식단 관리) ─┐
                        ├→ M4 (식단 조회) ─┤
                        │                   ├→ M5 (알림 엔진) ⭐

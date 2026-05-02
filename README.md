@@ -1,4 +1,4 @@
-# 🍽️ SafePlate — 학교급식 알레르기 관리 시스템
+# 🍽️ Aller Re Alert — 학교급식 알레르기 관리 시스템
 
 > 학교급식에서 **알레르기 보유 학생·교직원의 안전을 보장**하고, **영양사의 식단 작성 업무를 AI로 보조**하며, **대체식 수요를 설문·투표로 자동 집계**하는 웹 애플리케이션입니다.
 
@@ -193,8 +193,8 @@ Client (React on Vercel)
 ### 1. 저장소 클론
 
 ```bash
-git clone https://github.com/your-org/safeplate.git
-cd safeplate
+git clone https://github.com/your-org/AllerReAlert.git
+cd AllerReAlert
 ```
 
 ### 2. Supabase 프로젝트 준비
@@ -268,8 +268,8 @@ npm run dev
 ## 📁 프로젝트 구조
 
 ```
-safeplate/
-├── client/                       # React 프론트엔드 (Vercel 배포)
+AllerReAlert/
+├── frontend/                       # React 프론트엔드 (Vercel 배포)
 │   ├── src/
 │   │   ├── pages/               # 화면 컴포넌트 (SCR-001 ~ SCR-015)
 │   │   ├── components/
@@ -284,7 +284,7 @@ safeplate/
 │   ├── vercel.json              # Vercel 라우팅 / 헤더 설정
 │   └── package.json
 │
-├── server/                       # Express 백엔드 (Railway 배포)
+├── backend/                       # Express 백엔드 (Railway 배포)
 │   ├── src/
 │   │   ├── routes/              # API 라우트
 │   │   ├── controllers/         # 컨트롤러
@@ -349,19 +349,19 @@ OPENAI_API_KEY=sk-xxxxx
 
 # 이메일 (Resend)
 RESEND_API_KEY=re_xxxxx
-EMAIL_FROM="SafePlate <noreply@safeplate.kr>"
+EMAIL_FROM="allerrealert <noreply@allerrealert.kr>"
 
 # 웹 푸시 (VAPID)
 VAPID_PUBLIC_KEY=xxx
 VAPID_PRIVATE_KEY=xxx
-VAPID_SUBJECT=mailto:contact@safeplate.kr
+VAPID_SUBJECT=mailto:contact@allerrealert.kr
 
 # Supabase Storage (선택: 식단 이미지 업로드)
 SUPABASE_URL=https://<ref>.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...
 
 # CORS — Vercel 도메인 허용
-CORS_ORIGIN=https://safeplate.vercel.app,http://localhost:5173
+CORS_ORIGIN=https://allerrealert.vercel.app,http://localhost:5173
 
 # Sentry
 SENTRY_DSN=https://xxx@sentry.io/xxx
@@ -372,7 +372,7 @@ SENTRY_DSN=https://xxx@sentry.io/xxx
 ### `client/.env` (Vercel에서는 동일 키를 Project Settings → Environment Variables에 등록)
 
 ```env
-VITE_API_BASE_URL=http://localhost:4000/api/v1   # 운영: https://api.safeplate.kr/api/v1
+VITE_API_BASE_URL=http://localhost:4000/api/v1   # 운영: https://api.allerrealert.kr/api/v1
 VITE_VAPID_PUBLIC_KEY=xxx                        # 웹 푸시 구독용
 VITE_SENTRY_DSN=https://xxx@sentry.io/xxx
 ```
@@ -574,7 +574,7 @@ main 머지
 1. Vercel 프로젝트 생성 후 `client/` 디렉터리를 Root로 지정
 2. Build Command: `npm run build`, Output Directory: `dist`
 3. Project Settings → Environment Variables에 `VITE_*` 키 등록
-4. 커스텀 도메인 연결 (예: `safeplate.kr`) — Vercel이 ACM 인증서 자동 발급
+4. 커스텀 도메인 연결 (예: `allerrealert.kr`) — Vercel이 ACM 인증서 자동 발급
 
 ### 백엔드 (Railway)
 
@@ -585,7 +585,7 @@ main 머지
    - Pre-Deploy / Release Command: `npx prisma migrate deploy`
    - Start Command: `node dist/server.js`
    - Healthcheck Path: `/api/v1/health`
-4. 커스텀 도메인 연결 (예: `api.safeplate.kr`)
+4. 커스텀 도메인 연결 (예: `api.allerrealert.kr`)
 
 ### 데이터베이스 (Supabase)
 
@@ -671,8 +671,8 @@ MIT License — [LICENSE](LICENSE) 파일 참조.
 
 ## 📞 문의
 
-- **이슈 트래커**: [GitHub Issues](https://github.com/your-org/safeplate/issues)
-- **이메일**: contact@safeplate.kr
+- **이슈 트래커**: [GitHub Issues](https://github.com/your-org/alerrealert/issues)
+- **이메일**: contact@allerrealert.kr
 
 ---
 
