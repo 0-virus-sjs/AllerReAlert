@@ -1,6 +1,6 @@
-# Generate_task.md — SafePlate 개발 작업 목록
+# Generate_task.md — 알라리알라 (Aller Re-Alert) 개발 작업 목록
 
-> **프로젝트**: 학교급식 알레르기 관리 시스템 (SafePlate)
+> **프로젝트**: 학교 급식 알레르기 관리 시스템 - 알라리알라 (Aller Re-Alert)
 > **기술 스택**: React + Bootstrap on **Vercel** (Frontend) / Node.js + Express on **Railway** (Backend) / **Prisma ORM** / **Supabase PostgreSQL** (DB)
 > **아키텍처 흐름**: Client → React App on Vercel → HTTP REST API → Express API Server on Railway → Prisma ORM → Supabase PostgreSQL
 > **기준 PRD**: create_prd.md (학교급식 알레르기 관리 시스템)
@@ -90,8 +90,8 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 
 # M1. DB 스키마 & 마스터 데이터
 
-## T-010. [DB] School / User 테이블 스키마
-- **설명**: `schools`(id, name, address, grade_structure), `users`(id, school_id FK, role enum, name, email, phone, grade_class, password_hash, created_at). 인덱스: `users(email)`, `users(school_id, role)`. Prisma `schema.prisma` 모델 정의 → `prisma migrate dev`.
+## T-010. [DB] Organization / User 테이블 스키마
+- **설명**: `organizations`(id, name, address, org_type enum[school/company/welfare/military/other], grade_structure nullable, meal_time), `users`(id, org_id FK, role enum, name, email, phone, group_info, password_hash, created_at). 인덱스: `users(email)`, `users(org_id, role)`. Prisma `schema.prisma` 모델 정의 → `prisma migrate dev`. ※ 학교 외 단체 확장 고려하여 `organization` 추상화 엔티티 사용.
 - **우선순위**: High
 - **난이도**: 2 SP
 - **선행 작업**: T-004
@@ -103,7 +103,7 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 - **선행 작업**: T-010
 
 ## T-012. [DB] MealPlan / MealItem / MealItemAllergen 스키마
-- **설명**: `meal_plans`(id, school_id, date, status, published_at, created_by). `meal_items`(id, meal_plan_id, category enum[rice/soup/side/dessert], name, calories, nutrients JSONB). `meal_item_allergens`(meal_item_id, allergen_id, is_auto_tagged). 인덱스: `meal_plans(school_id, date)`.
+- **설명**: `meal_plans`(id, org_id, date, status, published_at, created_by). `meal_items`(id, meal_plan_id, category enum[rice/soup/side/dessert], name, calories, nutrients JSONB). `meal_item_allergens`(meal_item_id, allergen_id, is_auto_tagged). 인덱스: `meal_plans(org_id, date)`.
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-011
@@ -166,8 +166,8 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 - **난이도**: 3 SP
 - **선행 작업**: T-020
 
-## T-023. [BE] API: `POST /auth/verify-school` (학교코드 인증)
-- **설명**: 학교코드 입력 → 학교 존재 여부 확인 후 임시 토큰 반환. 가입 플로우 1단계로 사용.
+## T-023. [BE] API: `POST /auth/verify-org` (소속 코드 인증)
+- **설명**: 소속 코드 입력 → 단체(학교·기관 등) 존재 여부 확인 후 임시 토큰 반환. 가입 플로우 1단계로 사용. 단체 유형(org_type)에 따라 추가 인증 필드 분기 가능.
 - **우선순위**: High
 - **난이도**: 2 SP
 - **선행 작업**: T-010
@@ -197,7 +197,7 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 - **선행 작업**: T-022, T-026
 
 ## T-028. [FE] SCR-002 회원가입 화면 (역할별 폼)
-- **설명**: 학교코드 인증 → 역할 선택 → 역할별 정보 입력 (학생: 학년/반, 보호자: 자녀 연동코드, 영양사: 인증코드). 개인정보 동의 체크박스 필수.
+- **설명**: 소속 코드 인증 → 역할 선택 → 역할별 정보 입력 (학생: 학년/반, 보호자: 자녀 연동코드, 영양사: 인증코드; 학교 외 단체는 group_info 필드 유연화). 개인정보 동의 체크박스 필수.
 - **우선순위**: High
 - **난이도**: 5 SP
 - **선행 작업**: T-021, T-023, T-027
@@ -394,6 +394,12 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 
 # M6. AI 식단 생성·대체 제안
 
+## T-059. [BE] NEIS 급식 API 연동 서비스
+- **설명**: 나이스 교육정보 개방 포털(`open.neis.go.kr`) `mealServiceDietInfo` API 연동. 학교 코드(`ATPT_OFCDC_SC_CODE`, `SD_SCHUL_CODE`)와 날짜 범위로 실제 급식 메뉴 이력 조회. 결과를 AI 프롬프트 컨텍스트로 가공하는 어댑터 작성. API 키 관리(Railway Variables). 응답 캐싱(In-memory 1일) 적용. 학교 외 단체는 이 서비스를 건너뛰도록 org_type 분기.
+- **우선순위**: High
+- **난이도**: 3 SP
+- **선행 작업**: T-008, T-010
+
 ## T-060. [AI] AI Provider 추상화 (Claude API 우선, OpenAI 폴백)
 - **설명**: `AIProvider` 인터페이스. Anthropic Claude API 어댑터 우선 구현, OpenAI 폴백 어댑터. 타임아웃·재시도·토큰 사용량 로깅(Sentry breadcrumbs).
 - **우선순위**: High
@@ -401,7 +407,7 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 - **선행 작업**: T-008
 
 ## T-061. [AI] 정규 식단 생성 프롬프트 빌더
-- **설명**: PRD §7.4 정규 식단 프롬프트 구조 구현. 입력 조건(기간·예산·계절·영양 기준·선호/제외) → 시스템·유저 프롬프트 조립. JSON 출력 강제 (Claude의 JSON mode 또는 strict schema 프롬프트).
+- **설명**: PRD §7.4 정규 식단 프롬프트 구조 구현. 입력 조건(기간·예산·계절·영양 기준·선호/제외) + **T-059에서 가져온 NEIS 급식 이력 데이터**를 컨텍스트로 추가 → 시스템·유저 프롬프트 조립. JSON 출력 강제 (Claude의 JSON mode 또는 strict schema 프롬프트). org_type=school인 경우에만 NEIS 데이터 포함.
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-060
@@ -447,7 +453,7 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 # M7. 설문·투표
 
 ## T-070. [BE] 설문 자동 생성 서비스
-- **설명**: PRD §7.3 구현. 대체 식단 확정(T-036) 시 (1) Step1 need_check 설문 + (2) Step2 menu_vote 설문 자동 생성. 대상자(해당 알레르기 보유자) 자동 산정.
+- **설명**: PRD §7.3 구현. 영양사가 대체 식단 후보를 확정하고 마감일을 지정해 설문을 등록(T-036 확정 API)하면 (1) Step1 need_check 설문 + (2) Step2 menu_vote 설문(원래 식단 + 대체 식단 후보 포함) 자동 생성. 대상자(해당 알레르기 보유자) 자동 산정. `deadline`은 영양사 입력값 사용.
 - **우선순위**: High
 - **난이도**: 5 SP
 - **선행 작업**: T-014, T-036
@@ -538,8 +544,8 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 
 # M9. 관리자 패널
 
-## T-090. [BE] API: `GET /admin/schools` / `POST /admin/schools` / `PUT /admin/schools/:id`
-- **설명**: 학교 정보 CRUD. (FR-ADM-001)
+## T-090. [BE] API: `GET /admin/organizations` / `POST /admin/organizations` / `PUT /admin/organizations/:id`
+- **설명**: 단체 정보 CRUD. 학교·사내 식당·복지관 등 org_type 기반 관리. (FR-ADM-001)
 - **우선순위**: High
 - **난이도**: 3 SP
 - **선행 작업**: T-024
@@ -677,7 +683,7 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 - **선행 작업**: T-114
 
 ## T-117. [DEVOPS] 도메인 / HTTPS / WAF
-- **설명**: 커스텀 도메인 연결 — 프론트는 Vercel(`safeplate.kr`), API는 Railway(`api.safeplate.kr`). 두 곳 모두 HTTPS·인증서 자동 갱신. **WAF 옵션**: 비용·운영을 고려해 (a) 도메인을 Cloudflare 프록시 뒤에 두고 Cloudflare WAF/Rate Limit 사용 또는 (b) 애플리케이션 레이어 미들웨어(`express-rate-limit`, `helmet`)로 우선 대응. MVP는 (b)로 시작 → 트래픽 증가 시 (a) 추가.
+- **설명**: 커스텀 도메인 연결 — 프론트는 Vercel(`allerrealert.kr`), API는 Railway(`api.allerrealert.kr`). 두 곳 모두 HTTPS·인증서 자동 갱신. **WAF 옵션**: 비용·운영을 고려해 (a) 도메인을 Cloudflare 프록시 뒤에 두고 Cloudflare WAF/Rate Limit 사용 또는 (b) 애플리케이션 레이어 미들웨어(`express-rate-limit`, `helmet`)로 우선 대응. MVP는 (b)로 시작 → 트래픽 증가 시 (a) 추가.
 - **우선순위**: High
 - **난이도**: 2 SP
 - **선행 작업**: T-114
@@ -700,13 +706,13 @@ M11. 비기능·QA·배포 (T-110 ~ T-118)
 | M3 식단 관리(영양사) | 10 | 39 | |
 | M4 식단 조회(이용자) | 10 | 35 | |
 | M5 알림 엔진 ⭐ | 8 | 36 | 웹 푸시 구독 +1 SP |
-| M6 AI | 8 | 32 | |
+| M6 AI | 9 | 35 | T-059 NEIS API 연동 +3 SP |
 | M7 설문·투표 | 8 | 28 | |
 | M8 수요 집계 | 6 | 24 | |
 | M9 관리자 | 6 | 22 | |
 | M10 Phase 2 | 8 | 26 | |
 | M11 비기능·QA·배포 | 9 | 36 | Terraform/AWS 제거로 -14 SP |
-| **총계** | **100** | **약 347 SP** | 1 SP ≒ 0.5d → 약 174일 (5인 팀 기준 약 35주) |
+| **총계** | **101** | **약 350 SP** | 1 SP ≒ 0.5d → 약 175일 (5인 팀 기준 약 35주) |
 
 > AWS·Terraform 인프라 작업이 빠지고 PaaS 자동화로 전환되면서 M0/M11 합계 SP가 약 18 SP 감소했습니다. 대신 웹 푸시 구독·Supabase 백업 잡 등 일부 신규 작업이 추가되어 순감 약 16 SP입니다.
 
