@@ -269,7 +269,7 @@ npm run dev
 
 ```
 AllerReAlert/
-├── client/                       # React 프론트엔드 (Vercel 배포)
+├── frontend/                       # React 프론트엔드 (Vercel 배포)
 │   ├── src/
 │   │   ├── pages/               # 화면 컴포넌트 (SCR-001 ~ SCR-015)
 │   │   ├── components/
@@ -284,7 +284,7 @@ AllerReAlert/
 │   ├── vercel.json              # Vercel 라우팅 / 헤더 설정
 │   └── package.json
 │
-├── server/                       # Express 백엔드 (Railway 배포)
+├── backend/                       # Express 백엔드 (Railway 배포)
 │   ├── src/
 │   │   ├── routes/              # API 라우트
 │   │   ├── controllers/         # 컨트롤러
