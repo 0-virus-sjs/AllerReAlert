@@ -66,9 +66,10 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  organization   Organization   @relation(fields: [orgId], references: [id])
-  allergens      UserAllergen[] @relation("UserAllergens")
+  organization      Organization   @relation(fields: [orgId], references: [id])
+  allergens         UserAllergen[] @relation("UserAllergens")
   approvedAllergies UserAllergen[] @relation("ApprovedAllergens")
+  notifications     Notification[]
 
   @@index([orgId, role])
   @@map("users")
@@ -101,4 +102,31 @@ model UserAllergen {
   approver User?    @relation("ApprovedAllergens", fields: [approvedBy], references: [id])
 
   @@map("user_allergens")
+}
+
+// ── M1: T-015 Notification ────────────────────────────
+
+enum NotificationType {
+  allergen_alert
+  menu_change
+  survey_invite
+  survey_reminder
+  approval_request
+  approval_result
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  title     String
+  body      String
+  payload   Json?
+  isRead    Boolean          @default(false) @map("is_read")
+  sentAt    DateTime         @default(now()) @map("sent_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead, sentAt(sort: Desc)])
+  @@map("notifications")
 }
