@@ -13,4 +13,55 @@ datasource db {
   directUrl = env("DIRECT_URL")    // Direct (5432) — migrate / introspect 전용
 }
 
-// 실제 모델은 M1 (T-010~T-018)에서 정의
+// ── Enums ─────────────────────────────────────────────
+
+enum OrgType {
+  school
+  company
+  welfare
+  military
+  other
+}
+
+enum UserRole {
+  student
+  staff
+  guardian
+  nutritionist
+  admin
+}
+
+// ── M1: T-010 Organization / User ────────────────────
+
+model Organization {
+  id             String   @id @default(cuid())
+  name           String
+  address        String?
+  orgType        OrgType  @map("org_type")
+  gradeStructure Json?    @map("grade_structure")
+  mealTime       Json?    @map("meal_time")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  users User[]
+
+  @@map("organizations")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  orgId        String   @map("org_id")
+  role         UserRole
+  name         String
+  email        String   @unique
+  phone        String?
+  groupInfo    Json?    @map("group_info")
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, role])
+  @@map("users")
+}
