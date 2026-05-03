@@ -1,31 +1,54 @@
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
+import morgan from 'morgan'
+import compression from 'compression'
+import cookieParser from 'cookie-parser'
+import rateLimit from 'express-rate-limit'
 import dotenv from 'dotenv'
 import router from './routes'
+import { errorHandler } from './middlewares/errorHandler'
+import { sendSuccess } from './middlewares/response'
 
 dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 5000
 
-// ── 미들웨어 ──────────────────────────────────────────
-app.use(cors({ origin: process.env.CLIENT_URL })) // 프론트엔드 도메인만 허용
+// ── 보안 ──────────────────────────────────────────────
+app.use(helmet())
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL,
+    credentials: true,
+  })
+)
+app.use(
+  rateLimit({
+    windowMs: 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+  })
+)
+
+// ── 유틸리티 미들웨어 ─────────────────────────────────
+app.use(compression())
+app.use(morgan('dev'))
 app.use(express.json())
+app.use(express.urlencoded({ extended: true }))
+app.use(cookieParser())
 
 // ── 라우터 ────────────────────────────────────────────
-app.use('/api', router) // 모든 API는 /api/* 경로로 통일
+app.use('/api/v1', router)
 
-// ── 헬스체크 (Railway 배포 시 필수) ──────────────────
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok' })
+// ── 헬스체크 (Railway 헬스체크 + M0 완료 기준) ────────
+app.get('/api/v1/health', (_req, res) => {
+  sendSuccess(res, { status: 'ok', timestamp: new Date().toISOString() })
 })
 
 // ── 글로벌 에러 핸들러 ────────────────────────────────
-// TODO: middlewares/errorHandler.ts 로 분리
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error(err.stack)
-  res.status(500).json({ message: err.message })
-})
+app.use(errorHandler)
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`))
 
