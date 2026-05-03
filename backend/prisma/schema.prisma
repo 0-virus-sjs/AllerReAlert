@@ -49,7 +49,8 @@ model Organization {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  users User[]
+  users     User[]
+  mealPlans MealPlan[]
 
   @@map("organizations")
 }
@@ -66,11 +67,12 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  organization      Organization   @relation(fields: [orgId], references: [id])
-  allergens         UserAllergen[] @relation("UserAllergens")
-  approvedAllergies UserAllergen[] @relation("ApprovedAllergens")
-  notifications     Notification[]
-  auditLogs         AuditLog[]
+  organization        Organization   @relation(fields: [orgId], references: [id])
+  allergens           UserAllergen[] @relation("UserAllergens")
+  approvedAllergies   UserAllergen[] @relation("ApprovedAllergens")
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+  createdMealPlans    MealPlan[]     @relation("CreatedMealPlans")
 
   @@index([orgId, role])
   @@map("users")
@@ -84,7 +86,8 @@ model Allergen {
   code    Int     @unique
   iconUrl String? @map("icon_url")
 
-  userAllergens UserAllergen[]
+  userAllergens     UserAllergen[]
+  mealItemAllergens MealItemAllergen[]
 
   @@map("allergens")
 }
@@ -150,4 +153,62 @@ model AuditLog {
   @@index([userId, createdAt(sort: Desc)])
   @@index([targetType, targetId])
   @@map("audit_logs")
+}
+
+// ── M1: T-012 MealPlan / MealItem / MealItemAllergen ─
+
+enum MealPlanStatus {
+  draft
+  published
+}
+
+enum MealItemCategory {
+  rice
+  soup
+  side
+  dessert
+}
+
+model MealPlan {
+  id          String        @id @default(cuid())
+  orgId       String        @map("org_id")
+  date        DateTime      @db.Date
+  status      MealPlanStatus @default(draft)
+  publishedAt DateTime?     @map("published_at")
+  createdBy   String        @map("created_by")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id])
+  createdByUser User        @relation("CreatedMealPlans", fields: [createdBy], references: [id])
+  items        MealItem[]
+
+  @@index([orgId, date])
+  @@map("meal_plans")
+}
+
+model MealItem {
+  id         String          @id @default(cuid())
+  mealPlanId String          @map("meal_plan_id")
+  category   MealItemCategory
+  name       String
+  calories   Int?
+  nutrients  Json?
+
+  mealPlan  MealPlan           @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  allergens MealItemAllergen[]
+
+  @@map("meal_items")
+}
+
+model MealItemAllergen {
+  mealItemId   String  @map("meal_item_id")
+  allergenId   String  @map("allergen_id")
+  isAutoTagged Boolean @default(false) @map("is_auto_tagged")
+
+  item     MealItem @relation(fields: [mealItemId], references: [id], onDelete: Cascade)
+  allergen Allergen @relation(fields: [allergenId], references: [id])
+
+  @@id([mealItemId, allergenId])
+  @@map("meal_item_allergens")
 }
