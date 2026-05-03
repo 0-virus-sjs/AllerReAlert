@@ -70,9 +70,12 @@ model User {
   organization        Organization   @relation(fields: [orgId], references: [id])
   allergens           UserAllergen[] @relation("UserAllergens")
   approvedAllergies   UserAllergen[] @relation("ApprovedAllergens")
-  notifications       Notification[]
-  auditLogs           AuditLog[]
-  createdMealPlans    MealPlan[]     @relation("CreatedMealPlans")
+  notifications           Notification[]
+  auditLogs               AuditLog[]
+  createdMealPlans        MealPlan[]          @relation("CreatedMealPlans")
+  confirmedAlternatePlans AlternateMealPlan[] @relation("ConfirmedAlternatePlans")
+  createdSurveys          Survey[]            @relation("CreatedSurveys")
+  surveyResponses         SurveyResponse[]
 
   @@index([orgId, role])
   @@map("users")
@@ -86,8 +89,9 @@ model Allergen {
   code    Int     @unique
   iconUrl String? @map("icon_url")
 
-  userAllergens     UserAllergen[]
-  mealItemAllergens MealItemAllergen[]
+  userAllergens       UserAllergen[]
+  mealItemAllergens   MealItemAllergen[]
+  alternateMealPlans  AlternateMealPlan[]
 
   @@map("allergens")
 }
@@ -179,9 +183,11 @@ model MealPlan {
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [orgId], references: [id])
-  createdByUser User        @relation("CreatedMealPlans", fields: [createdBy], references: [id])
-  items        MealItem[]
+  organization   Organization       @relation(fields: [orgId], references: [id])
+  createdByUser  User               @relation("CreatedMealPlans", fields: [createdBy], references: [id])
+  items          MealItem[]
+  alternatePlans AlternateMealPlan[]
+  surveys        Survey[]
 
   @@index([orgId, date])
   @@map("meal_plans")
@@ -195,8 +201,9 @@ model MealItem {
   calories   Int?
   nutrients  Json?
 
-  mealPlan  MealPlan           @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
-  allergens MealItemAllergen[]
+  mealPlan       MealPlan           @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  allergens      MealItemAllergen[]
+  alternateItems AlternateMealItem[]
 
   @@map("meal_items")
 }
@@ -211,4 +218,88 @@ model MealItemAllergen {
 
   @@id([mealItemId, allergenId])
   @@map("meal_item_allergens")
+}
+
+// ── M1: T-013 AlternateMealPlan / AlternateMealItem ──
+
+enum AlternatePlanStatus {
+  draft
+  confirmed
+}
+
+model AlternateMealPlan {
+  id              String              @id @default(cuid())
+  mealPlanId      String              @map("meal_plan_id")
+  targetAllergenId String             @map("target_allergen_id")
+  status          AlternatePlanStatus @default(draft)
+  confirmedBy     String?             @map("confirmed_by")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  mealPlan       MealPlan    @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  targetAllergen Allergen    @relation(fields: [targetAllergenId], references: [id])
+  confirmedByUser User?      @relation("ConfirmedAlternatePlans", fields: [confirmedBy], references: [id])
+  items           AlternateMealItem[]
+
+  @@map("alternate_meal_plans")
+}
+
+model AlternateMealItem {
+  id             String  @id @default(cuid())
+  altPlanId      String  @map("alt_plan_id")
+  replacesItemId String  @map("replaces_item_id")
+  name           String
+  calories       Int?
+  nutrients      Json?
+
+  altPlan      AlternateMealPlan @relation(fields: [altPlanId], references: [id], onDelete: Cascade)
+  replacesItem MealItem          @relation(fields: [replacesItemId], references: [id])
+
+  @@map("alternate_meal_items")
+}
+
+// ── M1: T-014 Survey / SurveyResponse ────────────────
+
+enum SurveyType {
+  need_check
+  menu_vote
+}
+
+enum SurveyStatus {
+  open
+  closed
+}
+
+model Survey {
+  id          String       @id @default(cuid())
+  mealPlanId  String       @map("meal_plan_id")
+  type        SurveyType
+  options     Json
+  deadline    DateTime
+  status      SurveyStatus @default(open)
+  createdBy   String       @map("created_by")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  mealPlan      MealPlan         @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  createdByUser User             @relation("CreatedSurveys", fields: [createdBy], references: [id])
+  responses     SurveyResponse[]
+
+  @@map("surveys")
+}
+
+model SurveyResponse {
+  id          String   @id @default(cuid())
+  surveyId    String   @map("survey_id")
+  userId      String   @map("user_id")
+  response    Json
+  votedItemId String?  @map("voted_item_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  survey Survey @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([surveyId, userId])
+  @@map("survey_responses")
 }
