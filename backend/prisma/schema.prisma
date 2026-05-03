@@ -31,6 +31,12 @@ enum UserRole {
   admin
 }
 
+enum UserAllergenStatus {
+  pending
+  confirmed
+  rejected
+}
+
 // ── M1: T-010 Organization / User ────────────────────
 
 model Organization {
@@ -60,8 +66,39 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [orgId], references: [id])
+  organization   Organization   @relation(fields: [orgId], references: [id])
+  allergens      UserAllergen[] @relation("UserAllergens")
+  approvedAllergies UserAllergen[] @relation("ApprovedAllergens")
 
   @@index([orgId, role])
   @@map("users")
+}
+
+// ── M1: T-011 Allergen / UserAllergen ────────────────
+
+model Allergen {
+  id      String  @id @default(cuid())
+  name    String
+  code    Int     @unique
+  iconUrl String? @map("icon_url")
+
+  userAllergens UserAllergen[]
+
+  @@map("allergens")
+}
+
+model UserAllergen {
+  id         String             @id @default(cuid())
+  userId     String             @map("user_id")
+  allergenId String             @map("allergen_id")
+  status     UserAllergenStatus @default(pending)
+  approvedBy String?            @map("approved_by")
+  createdAt  DateTime           @default(now()) @map("created_at")
+  updatedAt  DateTime           @updatedAt @map("updated_at")
+
+  user     User     @relation("UserAllergens", fields: [userId], references: [id])
+  allergen Allergen @relation(fields: [allergenId], references: [id])
+  approver User?    @relation("ApprovedAllergens", fields: [approvedBy], references: [id])
+
+  @@map("user_allergens")
 }
