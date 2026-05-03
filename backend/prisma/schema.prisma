@@ -70,6 +70,7 @@ model User {
   allergens         UserAllergen[] @relation("UserAllergens")
   approvedAllergies UserAllergen[] @relation("ApprovedAllergens")
   notifications     Notification[]
+  auditLogs         AuditLog[]
 
   @@index([orgId, role])
   @@map("users")
@@ -129,4 +130,24 @@ model Notification {
 
   @@index([userId, isRead, sentAt(sort: Desc)])
   @@map("notifications")
+}
+
+// ── M1: T-016 AuditLog ───────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?  @map("user_id")
+  action     String
+  targetType String   @map("target_type")
+  targetId   String?  @map("target_id")
+  ip         String?
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([targetType, targetId])
+  @@map("audit_logs")
 }
