@@ -1,66 +1,16 @@
-// Prisma 스키마 - Supabase PostgreSQL 대상
-// 변경 후 반영: npx prisma migrate dev --name <변경내용>
-// DB 직접 보기:  npx prisma studio
+// Prisma 스키마 — Supabase PostgreSQL
+// migrate:  npx prisma migrate dev --name <설명>
+// studio:   npx prisma studio
+// seed:     npx prisma db seed
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL") // Supabase > Settings > Database > Connection string
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")  // PgBouncer Pooled (6543) — 일반 쿼리
+  directUrl = env("DIRECT_URL")    // Direct (5432) — migrate / introspect 전용
 }
 
-// ── 유저 ──────────────────────────────────────────────
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  role      String   @default("user") // "user" | "admin"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  allergies UserAllergy[]
-  schools   UserSchool[]
-}
-
-// ── 알레르기 설정 (유저가 등록한 항목) ────────────────
-// 알레르기 코드: 1=난류 2=우유 3=메밀 4=땅콩 5=대두
-//               6=밀 7=고등어 8=게 9=새우 10=돼지고기 ...
-model UserAllergy {
-  id           String @id @default(cuid())
-  userId       String
-  allergenCode Int
-  user         User   @relation(fields: [userId], references: [id])
-}
-
-// ── 학교 ──────────────────────────────────────────────
-model School {
-  id       String @id @default(cuid())
-  neisCode String @unique // NEIS 학교 고유 코드
-  name     String
-  region   String // 교육청 코드 (예: B10 = 서울)
-
-  meals   Meal[]
-  users   UserSchool[]
-}
-
-// ── 유저-학교 연결 ─────────────────────────────────────
-model UserSchool {
-  id       String @id @default(cuid())
-  userId   String
-  schoolId String
-  user     User   @relation(fields: [userId], references: [id])
-  school   School @relation(fields: [schoolId], references: [id])
-}
-
-// ── 급식 데이터 ───────────────────────────────────────
-// menu 예시: [{ name: "잡곡밥", allergens: [5, 6] }]
-model Meal {
-  id        String   @id @default(cuid())
-  schoolId  String
-  date      DateTime
-  menu      Json
-  school    School   @relation(fields: [schoolId], references: [id])
-  createdAt DateTime @default(now())
-}
+// 실제 모델은 M1 (T-010~T-018)에서 정의
