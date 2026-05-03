@@ -8,6 +8,7 @@ import cookieParser from 'cookie-parser'
 import rateLimit from 'express-rate-limit'
 import dotenv from 'dotenv'
 import { logger } from './lib/logger'
+import { registerBackupJob } from './jobs/backupJob'
 import router from './routes'
 import { errorHandler } from './middlewares/errorHandler'
 import { sendSuccess } from './middlewares/response'
@@ -71,6 +72,9 @@ app.get('/api/v1/health', (_req, res) => {
 // ── 글로벌 에러 핸들러 ────────────────────────────────
 app.use(errorHandler)
 
-app.listen(PORT, () => logger.info(`Server running on port ${PORT}`))
+app.listen(PORT, () => {
+  logger.info(`Server running on port ${PORT}`)
+  registerBackupJob()
+})
 
 export default app
