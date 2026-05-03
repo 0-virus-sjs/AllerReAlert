@@ -5,6 +5,7 @@
     "buildCommand": "npx prisma generate && npm run build"
   },
   "deploy": {
+    "releaseCommand": "npx prisma migrate deploy",
     "startCommand": "node dist/app.js",
     "healthcheckPath": "/api/v1/health",
     "healthcheckTimeout": 10,
