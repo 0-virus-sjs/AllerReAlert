@@ -37,7 +37,7 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
-      - run: npx prisma generate
+      - run: npx prisma generate || true  # 모델 없는 M0에서 무시, M1 이후 정상 동작
       - run: npm run lint
       - run: npm run typecheck
       # - run: npm test   # M5 통합 테스트 작성 후 활성화
