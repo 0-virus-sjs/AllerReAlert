@@ -1,11 +1,55 @@
-# 패키지 설치 폴더 - npm install 하면 자동 생성되므로 커밋 불필요
+# ── Dependencies ─────────────────────────────
 node_modules/
+.pnp
+.pnp.js
 
-# 환경변수 파일 - DB 비밀번호, API 키 등 민감 정보가 담겨있어 절대 커밋 금지
-.env
-
-# React 빌드 결과물 - 배포 시 Docker에서 생성하므로 커밋 불필요
+# ── Build outputs ────────────────────────────
+dist/
 build/
+.next/
+out/
 
-# macOS 시스템 파일
+# ── Environment variables ────────────────────
+.env
+.env.local
+.env.*.local
+.env.development
+.env.staging
+.env.production
+
+# ── Logs ─────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── Testing ───────────────────────────────────
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# ── TypeScript ────────────────────────────────
+*.tsbuildinfo
+
+# ── macOS ─────────────────────────────────────
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# ── IDE ───────────────────────────────────────
+.idea/
+.vscode/settings.json
+.vscode/launch.json
+*.swp
+*.swo
+*.suo
+
+# ── Misc ──────────────────────────────────────
+*.pid
+*.seed
+.cache/
+tmp/
+temp/
