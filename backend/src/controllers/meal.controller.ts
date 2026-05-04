@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
-import { createMealPlan, createBulkMealPlans } from '../services/meal/meal.service'
+import { createMealPlan, createBulkMealPlans, updateMealPlan, deleteMealPlan } from '../services/meal/meal.service'
 import { sendSuccess } from '../middlewares/response'
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/
@@ -38,6 +38,42 @@ export async function createMealHandler(req: Request, res: Response, next: NextF
       const plan = await createMealPlan({ ...body, orgId, createdBy })
       sendSuccess(res, plan, 201)
     }
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ── T-031 ─────────────────────────────────────────────
+
+const updateMealBodySchema = z
+  .object({
+    date: z.string().regex(dateRegex, '날짜 형식은 YYYY-MM-DD').optional(),
+    items: z.array(mealItemSchema).min(1).optional(),
+  })
+  .refine((b) => b.date !== undefined || b.items !== undefined, {
+    message: 'date 또는 items 중 하나 이상 입력하세요',
+  })
+
+export async function updateMealHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params
+    const body = updateMealBodySchema.parse(req.body)
+    const { sub: userId, orgId } = req.user!
+
+    const plan = await updateMealPlan(id, userId, orgId, body)
+    sendSuccess(res, plan)
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function deleteMealHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params
+    const { sub: userId, orgId } = req.user!
+
+    await deleteMealPlan(id, userId, orgId)
+    sendSuccess(res, null)
   } catch (err) {
     next(err)
   }
