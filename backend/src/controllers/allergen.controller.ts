@@ -1,6 +1,12 @@
 import type { Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
-import { getUserAllergens, registerAllergen, checkMealAllergens } from '../services/allergen/allergen.service'
+import {
+  getUserAllergens,
+  registerAllergen,
+  updateAllergen,
+  deleteAllergen,
+  checkMealAllergens,
+} from '../services/allergen/allergen.service'
 import { sendSuccess } from '../middlewares/response'
 
 export async function listUserAllergensHandler(req: Request, res: Response, next: NextFunction) {
@@ -23,6 +29,34 @@ export async function registerAllergenHandler(req: Request, res: Response, next:
     const { sub: userId, role } = req.user!
     const record = await registerAllergen(userId, role, input)
     sendSuccess(res, record, 201)
+  } catch (err) {
+    next(err)
+  }
+}
+
+const updateSchema = z.object({
+  customAllergenName: z.string().min(1).max(100).nullable().optional(),
+})
+
+export async function updateAllergenHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params
+    const { sub: userId, role } = req.user!
+    const input = updateSchema.parse(req.body)
+    const record = await updateAllergen(id, userId, role, {
+      customAllergenName: input.customAllergenName ?? undefined,
+    })
+    sendSuccess(res, record)
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function deleteAllergenHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params
+    await deleteAllergen(id, req.user!.sub)
+    sendSuccess(res, null)
   } catch (err) {
     next(err)
   }

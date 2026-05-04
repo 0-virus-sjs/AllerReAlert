@@ -91,6 +91,42 @@ export async function getUserAllergens(userId: string) {
   return records.map(decodeEntry)
 }
 
+// ── T-042: PUT/DELETE /users/me/allergens/:id ─────────────
+
+export async function updateAllergen(
+  id: string,
+  userId: string,
+  role: UserRole,
+  input: { customAllergenName?: string }
+) {
+  const record = await prisma.userAllergen.findFirst({ where: { id, userId } })
+  if (!record) throw new AppError(404, 'NOT_FOUND', '알레르기 항목을 찾을 수 없습니다')
+
+  // 학생 수정 시 보호자 재승인 필요 — Phase 1: pending으로 되돌림 (Phase 2에서 알림 추가)
+  const status = role === 'student' ? 'pending' : record.status
+
+  const updated = await prisma.userAllergen.update({
+    where: { id },
+    data: {
+      status,
+      ...(input.customAllergenName !== undefined && {
+        customAllergenName: input.customAllergenName
+          ? encrypt(input.customAllergenName.trim())
+          : null,
+      }),
+    },
+    include: USER_ALLERGEN_INCLUDE,
+  })
+
+  return decodeEntry(updated)
+}
+
+export async function deleteAllergen(id: string, userId: string) {
+  const record = await prisma.userAllergen.findFirst({ where: { id, userId } })
+  if (!record) throw new AppError(404, 'NOT_FOUND', '알레르기 항목을 찾을 수 없습니다')
+  await prisma.userAllergen.delete({ where: { id } })
+}
+
 // ── T-035: GET /meals/:id/allergen-check ─────────────────
 export async function checkMealAllergens(mealPlanId: string, userId: string) {
   const [mealPlan, userAllergens] = await Promise.all([
