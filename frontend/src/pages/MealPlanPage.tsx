@@ -34,7 +34,7 @@ function getDaysInMonth(ym: string): Date[] {
 
 function planToInputs(plan: MealPlan | undefined): MealItemInput[] {
   return (
-    plan?.mealItems.map((it) => ({
+    plan?.items.map((it) => ({
       category: it.category,
       name: it.name,
       calories: it.calories ?? undefined,
@@ -121,7 +121,7 @@ export function MealPlanPage() {
 
   const uniqueAllergens = Array.from(
     new Set(
-      (currentPlan?.mealItems ?? []).flatMap((it) => it.allergens.map((a) => a.allergen.name))
+      (currentPlan?.items ?? []).flatMap((it) => it.allergens.map((a) => a.allergen.name))
     ),
   )
 
@@ -255,7 +255,7 @@ export function MealPlanPage() {
               <MealItemRow
                 key={idx}
                 item={item}
-                allergens={isDirty ? [] : (currentPlan?.mealItems[idx]?.allergens ?? [])}
+                allergens={isDirty ? [] : (currentPlan?.items[idx]?.allergens ?? [])}
                 onEdit={() => setEditingIndex(idx)}
                 onDelete={() => {
                   setLocalItems((prev) => prev.filter((_, i) => i !== idx))
