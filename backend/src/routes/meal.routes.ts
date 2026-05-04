@@ -9,6 +9,7 @@ import {
   deleteMealHandler,
   publishMealHandler,
 } from '../controllers/meal.controller'
+import { createAlternateHandler } from '../controllers/alternate.controller'
 
 const router = Router()
 router.use(authenticate)
@@ -26,5 +27,8 @@ router.delete('/:id',     requireRole(['nutritionist']), deleteMealHandler)
 
 // T-032: 식단 공개 (즉시 또는 예약)
 router.put('/:id/publish', requireRole(['nutritionist']), publishMealHandler)
+
+// T-036: 대체 식단 등록 (영양사 전용)
+router.post('/:id/alternates', requireRole(['nutritionist']), createAlternateHandler)
 
 export default router
