@@ -1,9 +1,48 @@
 import type { Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
-import { createMealPlan, createBulkMealPlans, updateMealPlan, deleteMealPlan, publishMealPlan } from '../services/meal/meal.service'
+import {
+  createMealPlan,
+  createBulkMealPlans,
+  updateMealPlan,
+  deleteMealPlan,
+  publishMealPlan,
+  getMealPlans,
+  getMealPlanById,
+} from '../services/meal/meal.service'
 import { sendSuccess } from '../middlewares/response'
 
-const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+const dateRegex    = /^\d{4}-\d{2}-\d{2}$/
+const monthRegex   = /^\d{4}-\d{2}$/
+
+// ── T-034 읽기 ────────────────────────────────────────
+
+const listQuerySchema = z.object({
+  month: z.string().regex(monthRegex, 'month 형식은 YYYY-MM'),
+})
+
+export async function listMealsHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { month } = listQuerySchema.parse(req.query)
+    const { orgId } = req.user!
+    const plans = await getMealPlans(orgId, month)
+    sendSuccess(res, plans)
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function getMealHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params
+    const { orgId } = req.user!
+    const plan = await getMealPlanById(id, orgId)
+    sendSuccess(res, plan)
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ─────────────────────────────────────────────────────
 
 const mealItemSchema = z.object({
   category: z.enum(['rice', 'soup', 'side', 'dessert']),

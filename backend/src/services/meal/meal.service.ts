@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
+import { cache, CacheKey, invalidateMealCache } from '../../lib/cache'
 import { applyAutoTagging } from './tagging.service'
 import { onPublishedMealChanged } from './change-hook'
 import { AppError } from '../../middlewares/errorHandler'
@@ -71,7 +72,58 @@ export async function createMealPlan(input: CreateMealInput) {
 
 // 월간 일괄 생성 — 각 날짜별로 독립 트랜잭션
 export async function createBulkMealPlans(inputs: CreateMealInput[]) {
-  return Promise.all(inputs.map(createMealPlan))
+  const plans = await Promise.all(inputs.map(createMealPlan))
+  // 생성 후 해당 org 캐시 무효화
+  if (plans.length > 0) invalidateMealCache(inputs[0].orgId)
+  return plans
+}
+
+// ── T-034 읽기 ────────────────────────────────────────
+
+const MEAL_LIST_INCLUDE = {
+  items: {
+    include: {
+      allergens: {
+        include: { allergen: { select: { id: true, code: true, name: true } } },
+      },
+    },
+  },
+} as const
+
+// GET /meals?orgId=&month=YYYY-MM  (월간 목록, 5분 캐시)
+export async function getMealPlans(orgId: string, month: string) {
+  const cacheKey = CacheKey.mealList(orgId, month)
+  const cached = cache.get(cacheKey)
+  if (cached !== undefined) return cached
+
+  const [year, mon] = month.split('-').map(Number)
+  const from = new Date(Date.UTC(year, mon - 1, 1))
+  const to   = new Date(Date.UTC(year, mon, 1))   // 다음 달 1일 (exclusive)
+
+  const plans = await prisma.mealPlan.findMany({
+    where: { orgId, date: { gte: from, lt: to } },
+    orderBy: { date: 'asc' },
+    include: MEAL_LIST_INCLUDE,
+  })
+
+  cache.set(cacheKey, plans)
+  return plans
+}
+
+// GET /meals/:id  (단건, 5분 캐시)
+export async function getMealPlanById(id: string, orgId: string) {
+  const cacheKey = CacheKey.mealDetail(id)
+  const cached = cache.get(cacheKey)
+  if (cached !== undefined) return cached
+
+  const plan = await prisma.mealPlan.findFirst({
+    where: { id, orgId },
+    include: MEAL_LIST_INCLUDE,
+  })
+  if (!plan) throw new AppError(404, 'NOT_FOUND', '식단을 찾을 수 없습니다')
+
+  cache.set(cacheKey, plan)
+  return plan
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -156,6 +208,10 @@ export async function updateMealPlan(
     await onPublishedMealChanged(id, existing, updated)
   }
 
+  // 캐시 무효화
+  cache.del(CacheKey.mealDetail(id))
+  invalidateMealCache(orgId)
+
   return updated
 }
 
@@ -187,10 +243,13 @@ export async function publishMealPlan(
   }
 
   // 즉시 공개
-  return prisma.mealPlan.update({
+  const published = await prisma.mealPlan.update({
     where: { id },
     data: { status: 'published', publishedAt: new Date(), scheduledAt: null },
   })
+  cache.del(CacheKey.mealDetail(id))
+  invalidateMealCache(orgId)
+  return published
 }
 
 // node-cron 폴링 잡에서 호출 — 예약 시각 도래한 draft 식단을 일괄 공개
@@ -206,6 +265,11 @@ export async function publishScheduledMealPlans(): Promise<number> {
     where: { id: { in: due.map((p) => p.id) } },
     data: { status: 'published', publishedAt: now, scheduledAt: null },
   })
+
+  // 공개된 각 plan의 캐시 무효화 (orgId는 plan별로 다를 수 있어 key 패턴으로 전체 삭제)
+  due.forEach((p) => cache.del(CacheKey.mealDetail(p.id)))
+  cache.flushAll()  // 소량 트래픽 단계: 전체 flush (Phase 2에서 Redis로 교체 시 세분화)
+
   return due.length
 }
 
@@ -231,4 +295,7 @@ export async function deleteMealPlan(id: string, userId: string, orgId: string) 
 
   // MealItem → MealItemAllergen 은 Prisma cascade 로 자동 삭제
   await prisma.mealPlan.delete({ where: { id } })
+
+  cache.del(CacheKey.mealDetail(id))
+  invalidateMealCache(orgId)
 }
