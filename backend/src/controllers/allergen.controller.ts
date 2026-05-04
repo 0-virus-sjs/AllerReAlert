@@ -8,7 +8,21 @@ import {
   checkMealAllergens,
   getUserAlternateMeals,
 } from '../services/allergen/allergen.service'
+import { prisma } from '../lib/prisma'
 import { sendSuccess } from '../middlewares/response'
+
+export async function listMasterAllergensHandler(_req: Request, res: Response, next: NextFunction) {
+  try {
+    const allergens = await prisma.allergen.findMany({
+      where: { code: { gt: 0 } },
+      orderBy: { code: 'asc' },
+      select: { id: true, code: true, name: true, iconUrl: true },
+    })
+    sendSuccess(res, allergens)
+  } catch (err) {
+    next(err)
+  }
+}
 
 export async function listUserAllergensHandler(req: Request, res: Response, next: NextFunction) {
   try {

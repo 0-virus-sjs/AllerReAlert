@@ -29,3 +29,18 @@ export async function publishMeal(id: string, scheduledAt?: string): Promise<Mea
   const { data } = await api.put<ApiOk<MealPlan>>(`/meals/${id}/publish`, { scheduledAt })
   return data.data
 }
+
+export async function exportMealPdf(month: string): Promise<void> {
+  const response = await api.get('/meals/export', {
+    params: { date: month, format: 'pdf' },
+    responseType: 'blob',
+  })
+  const url = URL.createObjectURL(new Blob([response.data as BlobPart], { type: 'application/pdf' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `meal-plan-${month}.pdf`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
