@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthInit } from './components/auth/AuthInit'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
+import { AppLayout } from './components/layout/AppLayout'
 
 const queryClient = new QueryClient()
 
@@ -16,19 +17,32 @@ function App() {
             <Route path="/signup" element={<div>Signup — SCR-002</div>} />
             <Route path="/unauthorized" element={<div>403 — 접근 권한 없음</div>} />
 
-            {/* 인증 필요 — 전 역할 */}
+            {/* 인증 필요 — 공통 레이아웃 적용 */}
             <Route element={<ProtectedRoute />}>
-              <Route path="/" element={<div>Dashboard</div>} />
-            </Route>
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<div>Dashboard</div>} />
+                <Route path="/notifications" element={<div>알림 목록</div>} />
+                <Route path="/profile" element={<div>내 프로필</div>} />
+                <Route path="/allergens" element={<div>알레르기 등록</div>} />
+                <Route path="/surveys" element={<div>설문·투표</div>} />
+                <Route path="/children" element={<div>자녀 알레르기</div>} />
+                <Route path="/analytics" element={<div>수요 대시보드</div>} />
+                <Route path="/ai" element={<div>AI 식단 생성</div>} />
 
-            {/* 영양사 전용 */}
-            <Route element={<ProtectedRoute roles={['nutritionist']} />}>
-              <Route path="/meals" element={<div>식단 관리 — SCR-010</div>} />
-            </Route>
+                {/* 영양사 전용 */}
+                <Route element={<ProtectedRoute roles={['nutritionist']} />}>
+                  <Route path="/meals" element={<div>식단 관리 — SCR-010</div>} />
+                </Route>
 
-            {/* 관리자 전용 */}
-            <Route element={<ProtectedRoute roles={['admin']} />}>
-              <Route path="/admin" element={<div>관리자 패널</div>} />
+                {/* 관리자 전용 */}
+                <Route element={<ProtectedRoute roles={['admin']} />}>
+                  <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
+                  <Route path="/admin/users" element={<div>사용자 관리</div>} />
+                  <Route path="/admin/schools" element={<div>학교 관리</div>} />
+                  <Route path="/admin/allergens" element={<div>알레르기 마스터</div>} />
+                  <Route path="/admin/logs" element={<div>시스템 로그</div>} />
+                </Route>
+              </Route>
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />
