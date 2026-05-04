@@ -6,6 +6,7 @@ import {
   updateAllergen,
   deleteAllergen,
   checkMealAllergens,
+  getUserAlternateMeals,
 } from '../services/allergen/allergen.service'
 import { sendSuccess } from '../middlewares/response'
 
@@ -57,6 +58,17 @@ export async function deleteAllergenHandler(req: Request, res: Response, next: N
     const { id } = req.params
     await deleteAllergen(id, req.user!.sub)
     sendSuccess(res, null)
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function alternateMealsHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user!.sub
+    const date = req.query.date as string | undefined
+    const result = await getUserAlternateMeals(userId, date)
+    sendSuccess(res, result)
   } catch (err) {
     next(err)
   }
