@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
-import { createMealPlan, createBulkMealPlans, updateMealPlan, deleteMealPlan } from '../services/meal/meal.service'
+import { createMealPlan, createBulkMealPlans, updateMealPlan, deleteMealPlan, publishMealPlan } from '../services/meal/meal.service'
 import { sendSuccess } from '../middlewares/response'
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/
@@ -74,6 +74,25 @@ export async function deleteMealHandler(req: Request, res: Response, next: NextF
 
     await deleteMealPlan(id, userId, orgId)
     sendSuccess(res, null)
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ── T-032 ─────────────────────────────────────────────
+
+const publishBodySchema = z.object({
+  scheduledAt: z.string().optional(),  // ISO 8601 여부는 서비스에서 new Date() 검증
+})
+
+export async function publishMealHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params
+    const { orgId } = req.user!
+    const { scheduledAt } = publishBodySchema.parse(req.body)
+
+    const plan = await publishMealPlan(id, orgId, scheduledAt)
+    sendSuccess(res, plan)
   } catch (err) {
     next(err)
   }

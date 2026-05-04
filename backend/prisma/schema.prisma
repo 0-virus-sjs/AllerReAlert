@@ -177,14 +177,15 @@ enum MealItemCategory {
 }
 
 model MealPlan {
-  id          String        @id @default(cuid())
-  orgId       String        @map("org_id")
-  date        DateTime      @db.Date
+  id          String         @id @default(cuid())
+  orgId       String         @map("org_id")
+  date        DateTime       @db.Date
   status      MealPlanStatus @default(draft)
-  publishedAt DateTime?     @map("published_at")
-  createdBy   String        @map("created_by")
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
+  publishedAt DateTime?      @map("published_at")
+  scheduledAt DateTime?      @map("scheduled_at")  // T-032 예약 공개 시각
+  createdBy   String         @map("created_by")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
 
   organization   Organization       @relation(fields: [orgId], references: [id])
   createdByUser  User               @relation("CreatedMealPlans", fields: [createdBy], references: [id])
