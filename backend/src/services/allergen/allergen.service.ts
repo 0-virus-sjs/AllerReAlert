@@ -1,5 +1,7 @@
+import type { UserRole } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
-import { decrypt } from '../../lib/crypto'
+import { decrypt, encrypt } from '../../lib/crypto'
+import { AppError } from '../../middlewares/errorHandler'
 
 const USER_ALLERGEN_INCLUDE = {
   allergen: { select: { id: true, code: true, name: true, iconUrl: true } },
@@ -26,6 +28,60 @@ function decodeEntry(ua: {
   }
 }
 
+// 학생은 보호자 승인 대기(pending), 나머지는 즉시 확정(confirmed)
+const PENDING_ROLES: UserRole[] = ['student']
+
+export interface RegisterAllergenInput {
+  allergenId?: string       // 식약처 19종 중 하나의 id
+  customAllergenName?: string  // 기타 자유 입력 (AES-256 암호화 저장)
+}
+
+export async function registerAllergen(
+  userId: string,
+  role: UserRole,
+  input: RegisterAllergenInput
+) {
+  if (!input.allergenId && !input.customAllergenName?.trim()) {
+    throw new AppError(400, 'BAD_REQUEST', 'allergenId 또는 customAllergenName 중 하나는 필수입니다')
+  }
+
+  let allergenId = input.allergenId
+
+  // 기타 자유 입력 처리: 'code=0' 자리표시자 알레르기 사용(없으면 생성)
+  if (!allergenId && input.customAllergenName) {
+    const etcAllergen = await prisma.allergen.upsert({
+      where: { code: 0 },
+      update: {},
+      create: { code: 0, name: '기타' },
+    })
+    allergenId = etcAllergen.id
+  }
+
+  // 중복 등록 방지
+  const existing = await prisma.userAllergen.findFirst({
+    where: { userId, allergenId },
+  })
+  if (existing) {
+    throw new AppError(409, 'ALREADY_REGISTERED', '이미 등록된 알레르기입니다')
+  }
+
+  const status = PENDING_ROLES.includes(role) ? 'pending' : 'confirmed'
+
+  const record = await prisma.userAllergen.create({
+    data: {
+      userId,
+      allergenId: allergenId!,
+      status,
+      customAllergenName: input.customAllergenName
+        ? encrypt(input.customAllergenName.trim())
+        : null,
+    },
+    include: USER_ALLERGEN_INCLUDE,
+  })
+
+  return decodeEntry(record)
+}
+
 export async function getUserAllergens(userId: string) {
   const records = await prisma.userAllergen.findMany({
     where: { userId },
@@ -33,4 +89,44 @@ export async function getUserAllergens(userId: string) {
     orderBy: { createdAt: 'asc' },
   })
   return records.map(decodeEntry)
+}
+
+// ── T-035: GET /meals/:id/allergen-check ─────────────────
+export async function checkMealAllergens(mealPlanId: string, userId: string) {
+  const [mealPlan, userAllergens] = await Promise.all([
+    prisma.mealPlan.findUnique({
+      where: { id: mealPlanId },
+      include: {
+        items: {
+          include: {
+            allergens: { include: { allergen: { select: { id: true, code: true, name: true } } } },
+          },
+        },
+      },
+    }),
+    prisma.userAllergen.findMany({
+      where: { userId, status: 'confirmed' },
+      include: { allergen: { select: { id: true, code: true, name: true } } },
+    }),
+  ])
+
+  if (!mealPlan) throw new AppError(404, 'NOT_FOUND', '식단을 찾을 수 없습니다')
+
+  const userAllergenIds = new Set(userAllergens.map((ua) => ua.allergenId))
+
+  const dangerous = mealPlan.items
+    .map((item) => {
+      const matched = item.allergens
+        .filter((a) => userAllergenIds.has(a.allergenId))
+        .map((a) => a.allergen)
+      return matched.length > 0 ? { item: { id: item.id, name: item.name }, matchedAllergens: matched } : null
+    })
+    .filter(Boolean)
+
+  return {
+    mealPlanId,
+    userId,
+    isDangerous: dangerous.length > 0,
+    dangerousItems: dangerous,
+  }
 }

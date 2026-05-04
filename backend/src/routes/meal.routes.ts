@@ -11,6 +11,7 @@ import {
   exportMealPdfHandler,
 } from '../controllers/meal.controller'
 import { createAlternateHandler } from '../controllers/alternate.controller'
+import { allergenCheckHandler } from '../controllers/allergen.controller'
 
 const router = Router()
 router.use(authenticate)
@@ -34,5 +35,8 @@ router.post('/:id/alternates', requireRole(['nutritionist']), createAlternateHan
 
 // T-047: 식단 PDF 다운로드 (전 역할 — 본인 알레르기 하이라이트)
 router.get('/export', exportMealPdfHandler)
+
+// T-035: 알레르기 대조 결과 (M3 연기분 — T-041 완료 후 연결)
+router.get('/:id/allergen-check', allergenCheckHandler)
 
 export default router
