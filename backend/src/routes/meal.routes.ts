@@ -8,6 +8,7 @@ import {
   updateMealHandler,
   deleteMealHandler,
   publishMealHandler,
+  exportMealPdfHandler,
 } from '../controllers/meal.controller'
 import { createAlternateHandler } from '../controllers/alternate.controller'
 
@@ -30,5 +31,8 @@ router.put('/:id/publish', requireRole(['nutritionist']), publishMealHandler)
 
 // T-036: 대체 식단 등록 (영양사 전용)
 router.post('/:id/alternates', requireRole(['nutritionist']), createAlternateHandler)
+
+// T-047: 식단 PDF 다운로드 (전 역할 — 본인 알레르기 하이라이트)
+router.get('/export', exportMealPdfHandler)
 
 export default router
