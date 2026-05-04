@@ -127,6 +127,50 @@ export async function deleteAllergen(id: string, userId: string) {
   await prisma.userAllergen.delete({ where: { id } })
 }
 
+// ── T-049: GET /users/me/alternate-meals?date= ───────────
+
+export async function getUserAlternateMeals(userId: string, date?: string) {
+  // 본인 confirmed 알레르기 ID 목록
+  const userAllergens = await prisma.userAllergen.findMany({
+    where: { userId, status: 'confirmed' },
+    select: { allergenId: true },
+  })
+  const allergenIds = userAllergens.map((ua) => ua.allergenId)
+  if (allergenIds.length === 0) return []
+
+  // 해당 알레르기를 대상으로 하는 confirmed 대체 식단 조회
+  const where: {
+    targetAllergenId: { in: string[] }
+    status: 'confirmed'
+    mealPlan?: { date: { gte: Date; lt: Date } }
+  } = {
+    targetAllergenId: { in: allergenIds },
+    status: 'confirmed',
+  }
+
+  if (date) {
+    // date=YYYY-MM-DD → 해당 날짜 하루
+    const start = new Date(date)
+    const end   = new Date(date)
+    end.setDate(end.getDate() + 1)
+    where.mealPlan = { date: { gte: start, lt: end } }
+  }
+
+  return prisma.alternateMealPlan.findMany({
+    where,
+    include: {
+      mealPlan:      { select: { id: true, date: true, orgId: true } },
+      targetAllergen: { select: { id: true, code: true, name: true } },
+      items: {
+        include: {
+          replacesItem: { select: { id: true, name: true, category: true } },
+        },
+      },
+    },
+    orderBy: { mealPlan: { date: 'asc' } },
+  })
+}
+
 // ── T-035: GET /meals/:id/allergen-check ─────────────────
 export async function checkMealAllergens(mealPlanId: string, userId: string) {
   const [mealPlan, userAllergens] = await Promise.all([
