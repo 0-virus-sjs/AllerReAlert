@@ -1,10 +1,16 @@
 import jwt from 'jsonwebtoken'
-import type { UserRole } from '@prisma/client'
+import type { OrgType, UserRole } from '@prisma/client'
 
 export interface JwtPayload {
   sub: string    // user id
   role: UserRole
   orgId: string
+}
+
+export interface TempTokenPayload {
+  orgId: string
+  orgType: OrgType
+  purpose: 'signup'
 }
 
 function accessSecret(): string {
@@ -33,4 +39,12 @@ export function verifyAccessToken(token: string): JwtPayload {
 
 export function verifyRefreshToken(token: string): JwtPayload {
   return jwt.verify(token, refreshSecret()) as JwtPayload
+}
+
+export function signTempToken(payload: TempTokenPayload): string {
+  return jwt.sign(payload, accessSecret(), { expiresIn: '10m' })
+}
+
+export function verifyTempToken(token: string): TempTokenPayload {
+  return jwt.verify(token, accessSecret()) as TempTokenPayload
 }
