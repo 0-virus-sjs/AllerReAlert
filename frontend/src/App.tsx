@@ -4,6 +4,7 @@ import { AuthInit } from './components/auth/AuthInit'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { AppLayout } from './components/layout/AppLayout'
 import { LoginPage } from './pages/LoginPage'
+import { SignupPage } from './pages/SignupPage'
 
 const queryClient = new QueryClient()
 
@@ -15,7 +16,7 @@ function App() {
           <Routes>
             {/* 공개 라우트 */}
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<div>Signup — SCR-002</div>} />
+            <Route path="/signup" element={<SignupPage />} />
             <Route path="/unauthorized" element={<div>403 — 접근 권한 없음</div>} />
 
             {/* 인증 필요 — 공통 레이아웃 적용 */}
