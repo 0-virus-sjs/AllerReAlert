@@ -26,6 +26,7 @@ const NAV_ITEMS: Record<UserRole, NavItem[]> = {
     { to: '/notifications', label: '알림',       icon: '🔔' },
   ],
   nutritionist: [
+    { to: '/',            label: '대시보드',     icon: '🏠' },
     { to: '/meals',       label: '식단 관리',    icon: '📝' },
     { to: '/ai',          label: 'AI 식단 생성', icon: '🤖' },
     { to: '/surveys',     label: '설문 관리',    icon: '📋' },

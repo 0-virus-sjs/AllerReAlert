@@ -5,6 +5,7 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { AppLayout } from './components/layout/AppLayout'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
+import { DashboardPage } from './pages/DashboardPage'
 
 const queryClient = new QueryClient()
 
@@ -22,7 +23,7 @@ function App() {
             {/* 인증 필요 — 공통 레이아웃 적용 */}
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
-                <Route path="/" element={<div>Dashboard</div>} />
+                <Route path="/" element={<DashboardPage />} />
                 <Route path="/notifications" element={<div>알림 목록</div>} />
                 <Route path="/profile" element={<div>내 프로필</div>} />
                 <Route path="/allergens" element={<div>알레르기 등록</div>} />
