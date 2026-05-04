@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
-import { verifyOrg, login, refreshAccessToken, logout } from '../services/auth.service'
+import { verifyOrg, signup, login, refreshAccessToken, logout } from '../services/auth.service'
 import { sendSuccess } from '../middlewares/response'
 import { authenticate } from '../middlewares/authenticate'
 
@@ -18,10 +18,40 @@ const verifyOrgSchema = z.object({
   orgCode: z.string().min(1, '소속 코드를 입력하세요'),
 })
 
+// 비밀번호 정책: 8자 이상, 영문 + 숫자 + 특수문자
+const passwordPolicy = z
+  .string()
+  .min(8, '비밀번호는 8자 이상이어야 합니다')
+  .regex(/[a-zA-Z]/, '영문자를 포함해야 합니다')
+  .regex(/\d/, '숫자를 포함해야 합니다')
+  .regex(/[!@#$%^&*(),.?":{}|<>]/, '특수문자를 포함해야 합니다')
+
+const signupSchema = z.object({
+  tempToken: z.string().min(1, '소속 인증 토큰이 필요합니다'),
+  role: z.enum(['student', 'staff', 'guardian', 'nutritionist']),
+  name: z.string().min(1, '이름을 입력하세요'),
+  email: z.email('올바른 이메일을 입력하세요'),
+  password: passwordPolicy,
+  phone: z.string().optional(),
+  groupInfo: z.record(z.string(), z.unknown()).optional(),
+  privacyAgreed: z.boolean().refine(v => v === true, '개인정보 수집·이용에 동의해야 합니다'),
+  guardianConsentRequired: z.boolean().default(false),
+})
+
 const loginSchema = z.object({
   email: z.email('올바른 이메일을 입력하세요'),
   password: z.string().min(1, '비밀번호를 입력하세요'),
 })
+
+export async function signupHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const body = signupSchema.parse(req.body)
+    const user = await signup(body)
+    sendSuccess(res, user, 201)
+  } catch (err) {
+    next(err)
+  }
+}
 
 export async function verifyOrgHandler(req: Request, res: Response, next: NextFunction) {
   try {
