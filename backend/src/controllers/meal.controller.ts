@@ -9,6 +9,7 @@ import {
   getMealPlans,
   getMealPlanById,
 } from '../services/meal/meal.service'
+import { generateMealPdf } from '../services/meal/pdf.service'
 import { sendSuccess } from '../middlewares/response'
 
 const dateRegex    = /^\d{4}-\d{2}-\d{2}$/
@@ -132,6 +133,27 @@ export async function publishMealHandler(req: Request, res: Response, next: Next
 
     const plan = await publishMealPlan(id, orgId, scheduledAt)
     sendSuccess(res, plan)
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ── T-047 PDF 다운로드 ────────────────────────────────
+
+const exportQuerySchema = z.object({
+  month: z.string().regex(monthRegex, 'month 형식은 YYYY-MM'),
+})
+
+export async function exportMealPdfHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { month } = exportQuerySchema.parse(req.query)
+    const { orgId, sub: userId } = req.user!
+
+    const pdfBuffer = await generateMealPdf({ orgId, month, userId })
+
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="meal-${month}.pdf"`)
+    res.send(pdfBuffer)
   } catch (err) {
     next(err)
   }
