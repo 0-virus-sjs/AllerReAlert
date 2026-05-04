@@ -63,9 +63,10 @@ model User {
   email        String   @unique
   phone        String?
   groupInfo    Json?    @map("group_info")
-  passwordHash String   @map("password_hash")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  passwordHash      String   @map("password_hash")
+  refreshTokenHash  String?  @map("refresh_token_hash")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
   organization        Organization   @relation(fields: [orgId], references: [id])
   allergens           UserAllergen[] @relation("UserAllergens")
