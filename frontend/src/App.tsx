@@ -6,6 +6,7 @@ import { AppLayout } from './components/layout/AppLayout'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { MealPlanPage } from './pages/MealPlanPage'
 
 const queryClient = new QueryClient()
 
@@ -34,7 +35,7 @@ function App() {
 
                 {/* 영양사 전용 */}
                 <Route element={<ProtectedRoute roles={['nutritionist']} />}>
-                  <Route path="/meals" element={<div>식단 관리 — SCR-010</div>} />
+                  <Route path="/meals" element={<MealPlanPage />} />
                 </Route>
 
                 {/* 관리자 전용 */}
