@@ -1,3 +1,4 @@
+/// <reference path="./types/express.d.ts" />
 import * as Sentry from '@sentry/node'
 import express from 'express'
 import cors from 'cors'
