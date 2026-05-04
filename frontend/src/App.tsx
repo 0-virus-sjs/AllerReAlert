@@ -8,6 +8,7 @@ import { SignupPage } from './pages/SignupPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { MealPlanPage } from './pages/MealPlanPage'
 import { AlternateMealPage } from './pages/AlternateMealPage'
+import { AllergenProfilePage } from './pages/AllergenProfilePage'
 
 const queryClient = new QueryClient()
 
@@ -28,7 +29,7 @@ function App() {
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/notifications" element={<div>알림 목록</div>} />
                 <Route path="/profile" element={<div>내 프로필</div>} />
-                <Route path="/allergens" element={<div>알레르기 등록</div>} />
+                <Route path="/allergens" element={<AllergenProfilePage />} />
                 <Route path="/surveys" element={<div>설문·투표</div>} />
                 <Route path="/children" element={<div>자녀 알레르기</div>} />
                 <Route path="/analytics" element={<div>수요 대시보드</div>} />
