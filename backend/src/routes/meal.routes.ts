@@ -16,6 +16,9 @@ import { allergenCheckHandler } from '../controllers/allergen.controller'
 const router = Router()
 router.use(authenticate)
 
+// T-047: 식단 PDF 다운로드 (전 역할) — /:id 보다 먼저 등록해야 shadow 방지
+router.get('/export', exportMealPdfHandler)
+
 // T-034: 식단 목록/단건 조회 (전 역할)
 router.get('/',    listMealsHandler)
 router.get('/:id', getMealHandler)
@@ -33,10 +36,7 @@ router.put('/:id/publish', requireRole(['nutritionist']), publishMealHandler)
 // T-036: 대체 식단 등록 (영양사 전용)
 router.post('/:id/alternates', requireRole(['nutritionist']), createAlternateHandler)
 
-// T-047: 식단 PDF 다운로드 (전 역할 — 본인 알레르기 하이라이트)
-router.get('/export', exportMealPdfHandler)
-
-// T-035: 알레르기 대조 결과 (M3 연기분 — T-041 완료 후 연결)
+// T-035: 알레르기 대조 결과
 router.get('/:id/allergen-check', allergenCheckHandler)
 
 export default router
