@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Alert, Button, Card, Container, Form, Spinner, Tab, Tabs } from 'react-bootstrap'
 import { useAuthStore } from '../stores/auth.store'
 import { authApi } from '../services/auth.api'
@@ -14,7 +14,10 @@ const ROLE_TABS: { key: UserRole; label: string }[] = [
 
 export function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { setAuth } = useAuthStore()
+
+  const signupSuccess = (location.state as { signupSuccess?: boolean } | null)?.signupSuccess ?? false
 
   const [role, setRole] = useState<UserRole>('student')
   const [email, setEmail] = useState('')
@@ -69,6 +72,12 @@ export function LoginPage() {
                 <Tab key={key} eventKey={key} title={label} />
               ))}
             </Tabs>
+
+            {signupSuccess && (
+              <Alert variant="success" className="py-2 small">
+                ✅ 회원가입이 완료됐습니다. 로그인해주세요.
+              </Alert>
+            )}
 
             {error && (
               <Alert variant="danger" className="py-2 small" onClose={() => setError(null)} dismissible>
