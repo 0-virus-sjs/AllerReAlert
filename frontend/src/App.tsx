@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthInit } from './components/auth/AuthInit'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { AppLayout } from './components/layout/AppLayout'
+import { LoginPage } from './pages/LoginPage'
 
 const queryClient = new QueryClient()
 
@@ -13,7 +14,7 @@ function App() {
         <AuthInit>
           <Routes>
             {/* 공개 라우트 */}
-            <Route path="/login" element={<div>Login — SCR-001</div>} />
+            <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<div>Signup — SCR-002</div>} />
             <Route path="/unauthorized" element={<div>403 — 접근 권한 없음</div>} />
 
