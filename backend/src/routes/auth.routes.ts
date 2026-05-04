@@ -1,11 +1,19 @@
 import { Router } from 'express'
-import { verifyOrgHandler } from '../controllers/auth.controller'
+import {
+  verifyOrgHandler,
+  loginHandler,
+  refreshHandler,
+  logoutHandler,
+  authenticate,
+} from '../controllers/auth.controller'
 
 const router = Router()
 
 router.post('/verify-org', verifyOrgHandler)
+router.post('/login', loginHandler)
+router.post('/refresh', refreshHandler)
+router.post('/logout', authenticate, logoutHandler)
 
 // T-021: POST /auth/signup
-// T-022: POST /auth/login, /auth/refresh, /auth/logout
 
 export default router
