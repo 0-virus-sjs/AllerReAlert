@@ -133,7 +133,11 @@ export async function refreshAccessToken(refreshToken: string) {
     data: { refreshTokenHash: await bcrypt.hash(newRefreshToken, 10) },
   })
 
-  return { accessToken: newAccessToken, refreshToken: newRefreshToken }
+  return {
+    accessToken: newAccessToken,
+    refreshToken: newRefreshToken,
+    user: { id: user.id, name: user.name, email: user.email, role: user.role, orgId: user.orgId },
+  }
 }
 
 export async function logout(userId: string) {

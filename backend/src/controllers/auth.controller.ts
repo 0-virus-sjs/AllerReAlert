@@ -81,9 +81,9 @@ export async function refreshHandler(req: Request, res: Response, next: NextFunc
       res.status(401).json({ success: false, error: { code: 'NO_REFRESH_TOKEN', message: '리프레시 토큰이 없습니다' } })
       return
     }
-    const { accessToken, refreshToken: newRefresh } = await refreshAccessToken(refreshToken)
+    const { accessToken, refreshToken: newRefresh, user } = await refreshAccessToken(refreshToken)
     res.cookie(REFRESH_COOKIE, newRefresh, refreshCookieOptions)
-    sendSuccess(res, { accessToken })
+    sendSuccess(res, { accessToken, user })
   } catch (err) {
     next(err)
   }
