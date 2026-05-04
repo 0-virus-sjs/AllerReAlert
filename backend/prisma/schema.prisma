@@ -100,13 +100,14 @@ model Allergen {
 }
 
 model UserAllergen {
-  id         String             @id @default(cuid())
-  userId     String             @map("user_id")
-  allergenId String             @map("allergen_id")
-  status     UserAllergenStatus @default(pending)
-  approvedBy String?            @map("approved_by")
-  createdAt  DateTime           @default(now()) @map("created_at")
-  updatedAt  DateTime           @updatedAt @map("updated_at")
+  id                 String             @id @default(cuid())
+  userId             String             @map("user_id")
+  allergenId         String             @map("allergen_id")
+  status             UserAllergenStatus @default(pending)
+  approvedBy         String?            @map("approved_by")
+  customAllergenName String?            @map("custom_allergen_name") // AES-256 암호화 저장
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
 
   user     User     @relation("UserAllergens", fields: [userId], references: [id])
   allergen Allergen @relation(fields: [allergenId], references: [id])
