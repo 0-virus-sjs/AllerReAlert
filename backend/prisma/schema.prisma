@@ -63,10 +63,12 @@ model User {
   email        String   @unique
   phone        String?
   groupInfo    Json?    @map("group_info")
-  passwordHash      String   @map("password_hash")
-  refreshTokenHash  String?  @map("refresh_token_hash")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  passwordHash             String    @map("password_hash")
+  refreshTokenHash         String?   @map("refresh_token_hash")
+  consentedAt              DateTime? @map("consented_at")           // 개인정보 동의 시각
+  guardianConsentRequired  Boolean   @default(false) @map("guardian_consent_required") // 14세 미만 여부
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
 
   organization        Organization   @relation(fields: [orgId], references: [id])
   allergens           UserAllergen[] @relation("UserAllergens")
