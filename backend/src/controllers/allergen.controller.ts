@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
+import { prisma } from '../lib/prisma'
 import {
   getUserAllergens,
   registerAllergen,
@@ -8,7 +9,6 @@ import {
   checkMealAllergens,
   getUserAlternateMeals,
 } from '../services/allergen/allergen.service'
-import { prisma } from '../lib/prisma'
 import { sendSuccess } from '../middlewares/response'
 
 export async function listMasterAllergensHandler(_req: Request, res: Response, next: NextFunction) {
