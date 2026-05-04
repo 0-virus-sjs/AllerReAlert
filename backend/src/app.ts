@@ -9,6 +9,7 @@ import rateLimit from 'express-rate-limit'
 import dotenv from 'dotenv'
 import { logger } from './lib/logger'
 import { registerBackupJob } from './jobs/backupJob'
+import { registerScheduledPublishJob } from './jobs/scheduledPublishJob'
 import router from './routes'
 import { errorHandler } from './middlewares/errorHandler'
 import { sendSuccess } from './middlewares/response'
@@ -75,6 +76,7 @@ app.use(errorHandler)
 app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`)
   registerBackupJob()
+  registerScheduledPublishJob()
 })
 
 export default app

@@ -159,6 +159,58 @@ export async function updateMealPlan(
   return updated
 }
 
+// ── T-032 ─────────────────────────────────────────────
+
+export async function publishMealPlan(
+  id: string,
+  orgId: string,
+  scheduledAt?: string,
+) {
+  const existing = await prisma.mealPlan.findFirst({ where: { id, orgId } })
+  if (!existing) throw new AppError(404, 'NOT_FOUND', '식단을 찾을 수 없습니다')
+  if (existing.status === 'published') {
+    throw new AppError(409, 'ALREADY_PUBLISHED', '이미 공개된 식단입니다')
+  }
+
+  if (scheduledAt) {
+    const schedDate = new Date(scheduledAt)
+    if (isNaN(schedDate.getTime())) {
+      throw new AppError(400, 'INVALID_DATE', '올바른 날짜 형식이 아닙니다')
+    }
+    if (schedDate <= new Date()) {
+      throw new AppError(400, 'INVALID_SCHEDULED_AT', '예약 시간은 현재 시간 이후여야 합니다')
+    }
+    return prisma.mealPlan.update({
+      where: { id },
+      data: { scheduledAt: schedDate },
+    })
+  }
+
+  // 즉시 공개
+  return prisma.mealPlan.update({
+    where: { id },
+    data: { status: 'published', publishedAt: new Date(), scheduledAt: null },
+  })
+}
+
+// node-cron 폴링 잡에서 호출 — 예약 시각 도래한 draft 식단을 일괄 공개
+export async function publishScheduledMealPlans(): Promise<number> {
+  const now = new Date()
+  const due = await prisma.mealPlan.findMany({
+    where: { status: 'draft', scheduledAt: { not: null, lte: now } },
+    select: { id: true },
+  })
+  if (due.length === 0) return 0
+
+  await prisma.mealPlan.updateMany({
+    where: { id: { in: due.map((p) => p.id) } },
+    data: { status: 'published', publishedAt: now, scheduledAt: null },
+  })
+  return due.length
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export async function deleteMealPlan(id: string, userId: string, orgId: string) {
   const existing = await prisma.mealPlan.findFirst({
     where: { id, orgId },
