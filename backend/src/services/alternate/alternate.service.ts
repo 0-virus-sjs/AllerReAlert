@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
+import { cache, CacheKey, invalidateMealCache } from '../../lib/cache'
 import { AppError } from '../../middlewares/errorHandler'
 import { onAlternatePlanConfirmed } from './survey-hook'
 
@@ -83,6 +84,10 @@ export async function confirmAlternatePlan(id: string, userId: string, orgId: st
     data: { status: 'confirmed', confirmedBy: userId },
     include: ALTERNATE_INCLUDE,
   })
+
+  // GET /meals 캐시 무효화 (확정 상태가 반영되도록)
+  invalidateMealCache(plan.mealPlan.orgId)
+  cache.del(CacheKey.mealDetail(plan.mealPlanId))
 
   // T-070 트리거: 설문 자동 생성 (M7에서 구현)
   await onAlternatePlanConfirmed(id)

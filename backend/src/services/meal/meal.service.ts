@@ -80,14 +80,26 @@ export async function createBulkMealPlans(inputs: CreateMealInput[]) {
 
 // ── T-034 읽기 ────────────────────────────────────────
 
-const MEAL_LIST_INCLUDE = {
-  items: {
-    include: {
-      allergens: {
-        include: { allergen: { select: { id: true, code: true, name: true } } },
+const ALLERGEN_INCLUDE = {
+  include: { allergen: { select: { id: true, code: true, name: true } } },
+} as const
+
+const ALTERNATE_PLANS_INCLUDE = {
+  include: {
+    targetAllergen: { select: { id: true, code: true, name: true } },
+    items: {
+      include: {
+        replacesItem: { select: { id: true, name: true, category: true } },
       },
     },
   },
+} as const
+
+const MEAL_LIST_INCLUDE = {
+  items: {
+    include: { allergens: ALLERGEN_INCLUDE },
+  },
+  alternatePlans: ALTERNATE_PLANS_INCLUDE,
 } as const
 
 // GET /meals?orgId=&month=YYYY-MM  (월간 목록, 5분 캐시)
@@ -135,12 +147,9 @@ export interface UpdateMealInput {
 
 const MEAL_PLAN_INCLUDE = {
   items: {
-    include: {
-      allergens: {
-        include: { allergen: { select: { id: true, code: true, name: true } } },
-      },
-    },
+    include: { allergens: ALLERGEN_INCLUDE },
   },
+  alternatePlans: ALTERNATE_PLANS_INCLUDE,
 } as const
 
 export async function updateMealPlan(
