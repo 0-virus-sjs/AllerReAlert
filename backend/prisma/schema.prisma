@@ -65,8 +65,9 @@ model User {
   groupInfo    Json?    @map("group_info")
   passwordHash             String    @map("password_hash")
   refreshTokenHash         String?   @map("refresh_token_hash")
-  consentedAt              DateTime? @map("consented_at")           // 개인정보 동의 시각
-  guardianConsentRequired  Boolean   @default(false) @map("guardian_consent_required") // 14세 미만 여부
+  consentedAt              DateTime? @map("consented_at")
+  guardianConsentRequired  Boolean   @default(false) @map("guardian_consent_required")
+  isActive                 Boolean   @default(true)  @map("is_active")   // T-091 관리자 활성/비활성
   createdAt                DateTime  @default(now()) @map("created_at")
   updatedAt                DateTime  @updatedAt @map("updated_at")
 

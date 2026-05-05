@@ -14,6 +14,7 @@ import { AIMealPlanPage } from './pages/AIMealPlanPage'
 import { SurveyPage } from './pages/SurveyPage'
 import { SurveyManagementPage } from './pages/SurveyManagementPage'
 import { AnalyticsDashboardPage } from './pages/AnalyticsDashboardPage'
+import { AdminPanelPage }         from './pages/AdminPanelPage'
 
 const queryClient = new QueryClient()
 
@@ -49,11 +50,7 @@ function App() {
 
                 {/* 관리자 전용 */}
                 <Route element={<ProtectedRoute roles={['admin']} />}>
-                  <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
-                  <Route path="/admin/users" element={<div>사용자 관리</div>} />
-                  <Route path="/admin/schools" element={<div>학교 관리</div>} />
-                  <Route path="/admin/allergens" element={<div>알레르기 마스터</div>} />
-                  <Route path="/admin/logs" element={<div>시스템 로그</div>} />
+                  <Route path="/admin" element={<AdminPanelPage />} />
                 </Route>
               </Route>
             </Route>
