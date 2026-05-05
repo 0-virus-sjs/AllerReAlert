@@ -80,11 +80,12 @@ async function callWithValidation<T>(
   provider: AIProvider,
   postValidate: (parsed: T) => string | null,  // null = OK, string = 에러 메시지
   maxRetries = 2,
+  maxTokens?: number,
 ): Promise<T> {
   const conversationMsgs = [...messages]
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    const { content } = await provider.complete(conversationMsgs, { maxTokens: 4096 })
+    const { content } = await provider.complete(conversationMsgs, { maxTokens: maxTokens ?? 4096 })
 
     // JSON 파싱
     let raw: unknown
@@ -169,6 +170,8 @@ export async function validateMealPlan(
 
       return null
     },
+    2,
+    8192,   // 월간 식단 ~6,000 토큰 필요 — 4096이면 JSON 중간 절단됨
   )
 }
 

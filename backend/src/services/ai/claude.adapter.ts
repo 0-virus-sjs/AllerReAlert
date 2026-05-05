@@ -5,7 +5,7 @@ import type { AIProvider, AIMessage, AICompletionOptions, AICompletionResult } f
 
 const MODEL        = 'claude-sonnet-4-6'
 const MAX_TOKENS   = 4096
-const TIMEOUT_MS   = 30_000
+const TIMEOUT_MS   = 50_000
 
 export const claudeAdapter: AIProvider = {
   name: 'claude',

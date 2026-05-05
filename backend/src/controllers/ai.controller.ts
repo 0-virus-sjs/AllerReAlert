@@ -22,9 +22,9 @@ const generateSchema = z.object({
 })
 
 export async function generateMealPlanHandler(req: Request, res: Response, next: NextFunction) {
-  // T-064: 동기 처리 — 30초 타임아웃 (NFR-PFM-003)
-  req.setTimeout(35_000)
-  res.setTimeout(35_000)
+  // T-064: 동기 처리 — max_tokens 8192 기준 단일 호출 ~25s + 재시도 버퍼
+  req.setTimeout(55_000)
+  res.setTimeout(55_000)
 
   try {
     const input  = generateSchema.parse(req.body)
