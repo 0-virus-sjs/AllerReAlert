@@ -28,7 +28,7 @@ export interface AlternateCandidateOutput {
   name: string
   category: 'rice' | 'soup' | 'side' | 'dessert'
   calories: number | null
-  nutrients: { carbs?: number | null; protein?: number | null; fat?: number | null } | null
+  nutrients?: { carbs?: number | null; protein?: number | null; fat?: number | null } | null
   allergenCodes: number[]
   reason: string
 }
