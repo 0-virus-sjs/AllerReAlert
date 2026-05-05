@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
-import { listSurveys, getSurveyById, createSurvey, submitSurveyResponse } from '../services/survey/survey.service'
+import { listSurveys, getSurveyById, createSurvey, submitSurveyResponse, closeSurvey } from '../services/survey/survey.service'
 import { sendSuccess } from '../middlewares/response'
 
 const listQuerySchema = z.object({
@@ -57,6 +57,16 @@ export async function submitResponseHandler(req: Request, res: Response, next: N
       orgId,
       { response: input.response as import('@prisma/client').Prisma.InputJsonValue, votedItemId: input.votedItemId },
     )
+    sendSuccess(res, result)
+  } catch (err) { next(err) }
+}
+
+// ── T-073 ────────────────────────────────────────────────
+
+export async function closeSurveyHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { orgId } = req.user!
+    const result = await closeSurvey(req.params.id, orgId)
     sendSuccess(res, result)
   } catch (err) { next(err) }
 }
