@@ -6,6 +6,7 @@ import mealRouter from './meal.routes'
 import alternateRouter from './alternate.routes'
 import notificationRouter from './notification.routes'
 import aiRouter from './ai.routes'
+import surveyRouter from './survey.routes'
 import { authenticate } from '../middlewares/authenticate'
 import { listMasterAllergensHandler } from '../controllers/allergen.controller'
 
@@ -18,6 +19,7 @@ router.use('/meals', mealRouter)
 router.use('/alternates', alternateRouter)
 router.use('/notifications', notificationRouter)
 router.use('/ai', aiRouter)
+router.use('/surveys', surveyRouter)
 
 // 식약처 알레르기 마스터 목록 (로그인 필요)
 router.get('/allergens', authenticate, listMasterAllergensHandler)
