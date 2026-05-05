@@ -13,6 +13,7 @@ import { NotificationCenterPage } from './pages/NotificationCenterPage'
 import { AIMealPlanPage } from './pages/AIMealPlanPage'
 import { SurveyPage } from './pages/SurveyPage'
 import { SurveyManagementPage } from './pages/SurveyManagementPage'
+import { AnalyticsDashboardPage } from './pages/AnalyticsDashboardPage'
 
 const queryClient = new QueryClient()
 
@@ -36,7 +37,7 @@ function App() {
                 <Route path="/allergens" element={<AllergenProfilePage />} />
                 <Route path="/surveys" element={<SurveyPage />} />
                 <Route path="/children" element={<div>자녀 알레르기</div>} />
-                <Route path="/analytics" element={<div>수요 대시보드</div>} />
+                <Route path="/analytics" element={<AnalyticsDashboardPage />} />
                 <Route path="/alternates" element={<AlternateMealPage />} />
 
                 {/* 영양사 전용 */}

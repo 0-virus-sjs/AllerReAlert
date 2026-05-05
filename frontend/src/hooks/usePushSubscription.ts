@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { notificationsApi } from '../services/notifications.api'
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
@@ -14,17 +14,14 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
 export type PushStatus = 'unsupported' | 'default' | 'granted' | 'denied' | 'subscribing' | 'subscribed'
 
 export function usePushSubscription() {
-  const [status, setStatus] = useState<PushStatus>('default')
-
-  useEffect(() => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      setStatus('unsupported')
-      return
-    }
+  // 브라우저 API는 동기 프로퍼티 접근이므로 lazy initializer로 초기화 — effect 불필요
+  const [status, setStatus] = useState<PushStatus>(() => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return 'unsupported'
     const perm = Notification.permission
-    if (perm === 'granted') setStatus('granted')
-    if (perm === 'denied')  setStatus('denied')
-  }, [])
+    if (perm === 'granted') return 'granted'
+    if (perm === 'denied')  return 'denied'
+    return 'default'
+  })
 
   async function subscribe() {
     if (!('serviceWorker' in navigator)) return

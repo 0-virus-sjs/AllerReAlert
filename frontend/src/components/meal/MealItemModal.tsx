@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Modal, Button, Form, Spinner } from 'react-bootstrap'
 import type { MealItemInput, MealItemCategory } from '../../types/meal'
 
@@ -23,15 +23,14 @@ export function MealItemModal({ show, initial, onSave, onHide }: Props) {
   const [error,    setError]    = useState('')
   const [saving,   setSaving]   = useState(false)
 
-  useEffect(() => {
-    if (show) {
-      setCategory(initial?.category ?? 'rice')
-      setName(initial?.name ?? '')
-      setCalories(initial?.calories?.toString() ?? '')
-      setError('')
-      setSaving(false)
-    }
-  }, [show, initial])
+  // useEffect 대신 Modal의 onShow 콜백에서 초기화 — effect 내 직접 setState 회피
+  function handleShow() {
+    setCategory(initial?.category ?? 'rice')
+    setName(initial?.name ?? '')
+    setCalories(initial?.calories?.toString() ?? '')
+    setError('')
+    setSaving(false)
+  }
 
   const handleSave = () => {
     if (!name.trim()) {
@@ -48,7 +47,7 @@ export function MealItemModal({ show, initial, onSave, onHide }: Props) {
   }
 
   return (
-    <Modal show={show} onHide={onHide} centered size="sm">
+    <Modal show={show} onHide={onHide} onShow={handleShow} centered size="sm">
       <Modal.Header closeButton style={{ background: '#CFECF3' }}>
         <Modal.Title style={{ fontSize: 14, fontWeight: 600 }}>
           {initial ? '메뉴 수정' : '메뉴 추가'}

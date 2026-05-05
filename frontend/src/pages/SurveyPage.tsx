@@ -7,23 +7,24 @@ import type { Survey, SurveyOptionItem } from '../services/surveys.api'
 // ── 카운트다운 타이머 ─────────────────────────────────────
 
 function CountdownTimer({ deadline }: { deadline: string }) {
-  const [text, setText] = useState('')
+  const [text,    setText]    = useState('')
+  const [isClose, setIsClose] = useState(false)
 
   useEffect(() => {
     function tick() {
       const diff = new Date(deadline).getTime() - Date.now()
-      if (diff <= 0) { setText('마감됨'); return }
+      if (diff <= 0) { setText('마감됨'); setIsClose(true); return }
       const h = Math.floor(diff / 3_600_000)
       const m = Math.floor((diff % 3_600_000) / 60_000)
       const s = Math.floor((diff % 60_000) / 1_000)
       setText(h > 0 ? `${h}시간 ${m}분 ${s}초` : `${m}분 ${s}초`)
+      setIsClose(diff < 2 * 3_600_000)
     }
     tick()
     const id = setInterval(tick, 1_000)
     return () => clearInterval(id)
   }, [deadline])
 
-  const isClose = new Date(deadline).getTime() - Date.now() < 2 * 3_600_000
   return (
     <span className={`small fw-semibold ${isClose ? 'text-danger' : 'text-secondary'}`}>
       ⏰ {text} 남음
