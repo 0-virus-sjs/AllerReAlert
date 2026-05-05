@@ -6,6 +6,7 @@ import {
   getSurveyHandler,
   createSurveyHandler,
   submitResponseHandler,
+  closeSurveyHandler,
 } from '../controllers/survey.controller'
 
 const router = Router()
@@ -19,6 +20,7 @@ router.post('/', requireRole(['nutritionist', 'admin']), createSurveyHandler)
 // T-072: 투표 응답 (student·staff·guardian)
 router.post('/:id/responses', requireRole(['student', 'staff', 'guardian']), submitResponseHandler)
 
-// T-073: PUT  /surveys/:id/close
+// T-073: 수동 마감 (영양사 전용)
+router.put('/:id/close', requireRole(['nutritionist', 'admin']), closeSurveyHandler)
 
 export default router

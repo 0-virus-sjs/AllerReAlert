@@ -12,6 +12,7 @@ import { logger } from './lib/logger'
 import { registerBackupJob } from './jobs/backupJob'
 import { registerScheduledPublishJob } from './jobs/scheduledPublishJob'
 import { registerAllergenAlertJob } from './jobs/allergenAlertJob'
+import { registerSurveyCloseJob } from './jobs/surveyCloseJob'
 import router from './routes'
 import { errorHandler } from './middlewares/errorHandler'
 import { sendSuccess } from './middlewares/response'
@@ -80,6 +81,7 @@ app.listen(PORT, () => {
   registerBackupJob()
   registerScheduledPublishJob()
   registerAllergenAlertJob()
+  registerSurveyCloseJob()
 })
 
 export default app

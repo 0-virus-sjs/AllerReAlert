@@ -1,5 +1,6 @@
 import type { Prisma, UserRole } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
+import { logger } from '../../lib/logger'
 import { AppError } from '../../middlewares/errorHandler'
 
 const SURVEY_BASE_INCLUDE = {
@@ -102,4 +103,54 @@ export async function submitSurveyResponse(
     },
     select: { id: true, surveyId: true, userId: true, response: true, votedItemId: true, updatedAt: true },
   })
+}
+
+// ── T-073: 설문 마감 + 결과 집계 ─────────────────────────
+
+export interface SurveyResult {
+  totalResponses: number
+  choices: Record<string, number>   // choiceKey → 득표 수
+}
+
+function aggregateResponses(
+  responses: Array<{ response: Prisma.JsonValue; votedItemId: string | null }>
+): SurveyResult {
+  const choices: Record<string, number> = {}
+  for (const r of responses) {
+    const key = r.votedItemId ?? ((r.response as Record<string, unknown>)?.choice as string) ?? 'unknown'
+    choices[key] = (choices[key] ?? 0) + 1
+  }
+  return { totalResponses: responses.length, choices }
+}
+
+export async function closeSurvey(surveyId: string, orgId: string): Promise<SurveyResult> {
+  const survey = await prisma.survey.findFirst({
+    where: { id: surveyId, mealPlan: { orgId } },
+    include: { responses: { select: { response: true, votedItemId: true } } },
+  })
+  if (!survey) throw new AppError(404, 'NOT_FOUND', '설문을 찾을 수 없습니다')
+  if (survey.status === 'closed') throw new AppError(409, 'ALREADY_CLOSED', '이미 마감된 설문입니다')
+
+  await prisma.survey.update({ where: { id: surveyId }, data: { status: 'closed' } })
+
+  const result = aggregateResponses(survey.responses)
+  logger.info({ surveyId, result }, '[T-073] 설문 마감 완료')
+  return result
+}
+
+/** node-cron에서 주기적으로 호출 — 마감 시각 도래 설문 일괄 close */
+export async function autoCloseDueSurveys(): Promise<void> {
+  const due = await prisma.survey.findMany({
+    where: { status: 'open', deadline: { lte: new Date() } },
+    include: { responses: { select: { response: true, votedItemId: true } } },
+  })
+  if (due.length === 0) return
+
+  await Promise.allSettled(
+    due.map(async (survey) => {
+      await prisma.survey.update({ where: { id: survey.id }, data: { status: 'closed' } })
+      const result = aggregateResponses(survey.responses)
+      logger.info({ surveyId: survey.id, result }, '[T-073] 자동 마감')
+    })
+  )
 }
