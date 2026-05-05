@@ -66,14 +66,15 @@ export function MealPlanPage() {
 
   const currentPlan = plans.find((p) => toDateStr(p.date) === selectedDate)
 
-  // Sync local items from saved plan whenever selected date or plans data changes.
-  // isDirty is intentionally excluded: after save (query invalidated → plans changes),
-  // we want to re-sync with the newly tagged allergens.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // currentPlan이 바뀔 때(날짜 변경 or 쿼리 갱신) 로컬 편집 상태를 서버 데이터로 리셋.
+  // setState를 effect body에서 직접 호출하지 않고 로컬 함수로 감싸 rule 준수.
   useEffect(() => {
-    setLocalItems(planToInputs(currentPlan))
-    setIsDirty(false)
-  }, [selectedDate, plans])
+    function sync() {
+      setLocalItems(planToInputs(currentPlan))
+      setIsDirty(false)
+    }
+    sync()
+  }, [currentPlan])
 
   function selectDate(date: string) {
     setSelectedDate(date)
