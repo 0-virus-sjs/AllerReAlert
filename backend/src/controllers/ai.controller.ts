@@ -1,0 +1,56 @@
+import type { Request, Response, NextFunction } from 'express'
+import { z } from 'zod'
+import { generateMealPlan, suggestAlternates } from '../services/ai/ai.service'
+import { sendSuccess } from '../middlewares/response'
+
+const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+
+// ── T-064: POST /ai/generate-meal-plan ────────────────────
+
+const generateSchema = z.object({
+  period: z.object({
+    from: z.string().regex(dateRegex, 'from 형식은 YYYY-MM-DD'),
+    to:   z.string().regex(dateRegex, 'to 형식은 YYYY-MM-DD'),
+  }),
+  budget:        z.number().positive().optional(),
+  calorieTarget: z.object({ min: z.number().positive(), max: z.number().positive() }).optional(),
+  proteinMin:    z.number().positive().optional(),
+  preferences:   z.array(z.string()).optional(),
+  excludes:      z.array(z.string()).optional(),
+  neisAtptCode:  z.string().optional(),
+  neisSchulCode: z.string().optional(),
+})
+
+export async function generateMealPlanHandler(req: Request, res: Response, next: NextFunction) {
+  // T-064: 동기 처리 — 30초 타임아웃 (NFR-PFM-003)
+  req.setTimeout(35_000)
+  res.setTimeout(35_000)
+
+  try {
+    const input  = generateSchema.parse(req.body)
+    const userId = req.user!.sub
+    const orgId  = req.user!.orgId
+    const result = await generateMealPlan(input, userId, orgId)
+    sendSuccess(res, result, 201)
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ── T-065: POST /ai/suggest-alternates ────────────────────
+
+const suggestSchema = z.object({
+  mealItemId:           z.string().min(1),
+  excludeAllergenCodes: z.array(z.number().int().min(1).max(22)).min(1),
+})
+
+export async function suggestAlternatesHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const input  = suggestSchema.parse(req.body)
+    const userId = req.user!.sub
+    const result = await suggestAlternates(input, userId)
+    sendSuccess(res, result, 201)
+  } catch (err) {
+    next(err)
+  }
+}
