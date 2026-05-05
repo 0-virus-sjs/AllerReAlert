@@ -11,6 +11,7 @@ import dotenv from 'dotenv'
 import { logger } from './lib/logger'
 import { registerBackupJob } from './jobs/backupJob'
 import { registerScheduledPublishJob } from './jobs/scheduledPublishJob'
+import { registerAllergenAlertJob } from './jobs/allergenAlertJob'
 import router from './routes'
 import { errorHandler } from './middlewares/errorHandler'
 import { sendSuccess } from './middlewares/response'
@@ -78,6 +79,7 @@ app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`)
   registerBackupJob()
   registerScheduledPublishJob()
+  registerAllergenAlertJob()
 })
 
 export default app
