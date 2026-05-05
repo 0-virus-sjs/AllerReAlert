@@ -4,6 +4,8 @@ import {
   listNotificationsHandler,
   markReadHandler,
   markAllReadHandler,
+  updateSettingsHandler,
+  subscribePushHandler,
 } from '../controllers/notification.controller'
 
 const router = Router()
@@ -14,6 +16,8 @@ router.get('/',           listNotificationsHandler)
 router.put('/read-all',   markAllReadHandler)
 router.put('/:id/read',   markReadHandler)
 
-// T-055: PUT /notifications/settings + POST /notifications/web-push/subscribe
+// T-055: 알림 설정 + 웹 푸시 구독
+router.put('/settings',              updateSettingsHandler)
+router.post('/web-push/subscribe',   subscribePushHandler)
 
 export default router
