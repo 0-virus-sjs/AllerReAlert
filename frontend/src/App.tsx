@@ -9,6 +9,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { MealPlanPage } from './pages/MealPlanPage'
 import { AlternateMealPage } from './pages/AlternateMealPage'
 import { AllergenProfilePage } from './pages/AllergenProfilePage'
+import { NotificationCenterPage } from './pages/NotificationCenterPage'
 
 const queryClient = new QueryClient()
 
@@ -27,7 +28,7 @@ function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
                 <Route path="/" element={<DashboardPage />} />
-                <Route path="/notifications" element={<div>알림 목록</div>} />
+                <Route path="/notifications" element={<NotificationCenterPage />} />
                 <Route path="/profile" element={<div>내 프로필</div>} />
                 <Route path="/allergens" element={<AllergenProfilePage />} />
                 <Route path="/surveys" element={<div>설문·투표</div>} />
