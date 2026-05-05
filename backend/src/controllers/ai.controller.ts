@@ -37,6 +37,69 @@ export async function generateMealPlanHandler(req: Request, res: Response, next:
   }
 }
 
+// ── T-066: POST /ai/recalculate-nutrition (Phase 2 stub) ──
+
+const recalcSchema = z.object({
+  items: z.array(
+    z.object({
+      name:      z.string().min(1),
+      calories:  z.number().positive().optional(),
+      nutrients: z.object({
+        carbs:   z.number().nonnegative().optional(),
+        protein: z.number().nonnegative().optional(),
+        fat:     z.number().nonnegative().optional(),
+      }).optional(),
+    })
+  ).min(1),
+  calorieTarget: z.object({ min: z.number().positive(), max: z.number().positive() }).optional(),
+  proteinMin:    z.number().positive().optional(),
+})
+
+export async function recalculateNutritionHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { items, calorieTarget, proteinMin } = recalcSchema.parse(req.body)
+
+    let totalCalories = 0
+    let totalCarbs = 0
+    let totalProtein = 0
+    let totalFat = 0
+
+    for (const item of items) {
+      totalCalories += item.calories ?? 0
+      totalCarbs    += item.nutrients?.carbs   ?? 0
+      totalProtein  += item.nutrients?.protein ?? 0
+      totalFat      += item.nutrients?.fat     ?? 0
+    }
+
+    const warnings: string[] = []
+    const caloriesOk = calorieTarget
+      ? totalCalories >= calorieTarget.min && totalCalories <= calorieTarget.max
+      : true
+    const proteinOk = proteinMin ? totalProtein >= proteinMin : true
+
+    if (!caloriesOk && calorieTarget) {
+      warnings.push(
+        `총 칼로리 ${totalCalories} kcal가 목표 범위 (${calorieTarget.min}~${calorieTarget.max} kcal)를 벗어났습니다`,
+      )
+    }
+    if (!proteinOk && proteinMin) {
+      warnings.push(`총 단백질 ${totalProtein} g가 최소 기준 ${proteinMin} g에 미달합니다`)
+    }
+
+    sendSuccess(res, {
+      totalCalories:   Math.round(totalCalories),
+      totalNutrients:  {
+        carbs:   Math.round(totalCarbs   * 10) / 10,
+        protein: Math.round(totalProtein * 10) / 10,
+        fat:     Math.round(totalFat     * 10) / 10,
+      },
+      validation: { caloriesOk, proteinOk, warnings },
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
 // ── T-065: POST /ai/suggest-alternates ────────────────────
 
 const suggestSchema = z.object({

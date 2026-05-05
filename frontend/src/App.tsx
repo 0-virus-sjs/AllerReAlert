@@ -10,6 +10,7 @@ import { MealPlanPage } from './pages/MealPlanPage'
 import { AlternateMealPage } from './pages/AlternateMealPage'
 import { AllergenProfilePage } from './pages/AllergenProfilePage'
 import { NotificationCenterPage } from './pages/NotificationCenterPage'
+import { AIMealPlanPage } from './pages/AIMealPlanPage'
 
 const queryClient = new QueryClient()
 
@@ -35,11 +36,11 @@ function App() {
                 <Route path="/children" element={<div>자녀 알레르기</div>} />
                 <Route path="/analytics" element={<div>수요 대시보드</div>} />
                 <Route path="/alternates" element={<AlternateMealPage />} />
-                <Route path="/ai" element={<div>AI 식단 생성</div>} />
 
                 {/* 영양사 전용 */}
                 <Route element={<ProtectedRoute roles={['nutritionist']} />}>
                   <Route path="/meals" element={<MealPlanPage />} />
+                  <Route path="/ai"    element={<AIMealPlanPage />} />
                 </Route>
 
                 {/* 관리자 전용 */}
