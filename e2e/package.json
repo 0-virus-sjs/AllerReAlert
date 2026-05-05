@@ -1,0 +1,15 @@
+{
+  "name": "allerrealert-e2e",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0",
+    "@types/node": "^25.6.0",
+    "dotenv": "^16.4.5"
+  }
+}

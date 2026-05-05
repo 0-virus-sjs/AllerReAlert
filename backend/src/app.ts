@@ -34,9 +34,17 @@ const PORT = process.env.PORT || 5000
 
 // ── 보안 ──────────────────────────────────────────────
 app.use(helmet())
+const allowedOrigins = (process.env.CLIENT_URL ?? '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean)
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL,
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true)
+      cb(new Error(`CORS: origin ${origin} not allowed`))
+    },
     credentials: true,
   })
 )
