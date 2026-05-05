@@ -5,6 +5,7 @@ import {
   listSurveysHandler,
   getSurveyHandler,
   createSurveyHandler,
+  submitResponseHandler,
 } from '../controllers/survey.controller'
 
 const router = Router()
@@ -15,7 +16,9 @@ router.get('/',    listSurveysHandler)
 router.get('/:id', getSurveyHandler)
 router.post('/', requireRole(['nutritionist', 'admin']), createSurveyHandler)
 
-// T-072: POST /surveys/:id/responses
+// T-072: 투표 응답 (student·staff·guardian)
+router.post('/:id/responses', requireRole(['student', 'staff', 'guardian']), submitResponseHandler)
+
 // T-073: PUT  /surveys/:id/close
 
 export default router

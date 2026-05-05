@@ -48,7 +48,6 @@ export interface CreateSurveyInput {
 }
 
 export async function createSurvey(input: CreateSurveyInput, createdBy: string, orgId: string) {
-  // mealPlan이 같은 org 소속인지 확인
   const plan = await prisma.mealPlan.findFirst({ where: { id: input.mealPlanId, orgId } })
   if (!plan) throw new AppError(404, 'NOT_FOUND', '식단을 찾을 수 없습니다')
 
@@ -61,5 +60,46 @@ export async function createSurvey(input: CreateSurveyInput, createdBy: string, 
       createdBy,
     },
     include: SURVEY_BASE_INCLUDE,
+  })
+}
+
+// ── T-072: POST /surveys/:id/responses ───────────────────
+
+export interface SubmitResponseInput {
+  response: Prisma.InputJsonValue
+  votedItemId?: string
+}
+
+export async function submitSurveyResponse(
+  surveyId: string,
+  userId: string,
+  orgId: string,
+  input: SubmitResponseInput,
+) {
+  const survey = await prisma.survey.findFirst({
+    where: { id: surveyId, mealPlan: { orgId } },
+    select: { id: true, status: true, deadline: true },
+  })
+  if (!survey) throw new AppError(404, 'NOT_FOUND', '설문을 찾을 수 없습니다')
+
+  // PRD §11.4: 마감 후 변경 불가
+  if (survey.status === 'closed' || survey.deadline < new Date()) {
+    throw new AppError(409, 'SURVEY_CLOSED', '마감된 설문에는 응답할 수 없습니다')
+  }
+
+  return prisma.surveyResponse.upsert({
+    where: { surveyId_userId: { surveyId, userId } },
+    update: {
+      response: input.response,
+      votedItemId: input.votedItemId ?? null,
+      updatedAt: new Date(),
+    },
+    create: {
+      surveyId,
+      userId,
+      response: input.response,
+      votedItemId: input.votedItemId,
+    },
+    select: { id: true, surveyId: true, userId: true, response: true, votedItemId: true, updatedAt: true },
   })
 }
