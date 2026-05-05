@@ -3,7 +3,8 @@ import { logger } from './logger'
 
 // 잡별 고정 락 키 (Postgres advisory lock은 bigint 키 사용)
 export const LOCK_KEYS = {
-  DAILY_ALERT: 1052n,   // T-052 스케줄러 전용
+  DAILY_ALERT:      1052n,  // T-052 스케줄러 전용
+  SURVEY_REMINDER:  1074n,  // T-074 설문 리마인더 전용
 } as const
 
 /**

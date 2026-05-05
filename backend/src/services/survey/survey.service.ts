@@ -2,6 +2,8 @@ import type { Prisma, UserRole } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { logger } from '../../lib/logger'
 import { AppError } from '../../middlewares/errorHandler'
+import { dispatch } from '../notification/dispatcher'
+import { withRetry } from '../../lib/retry'
 
 const SURVEY_BASE_INCLUDE = {
   mealPlan: { select: { id: true, date: true, orgId: true } },
@@ -52,7 +54,7 @@ export async function createSurvey(input: CreateSurveyInput, createdBy: string, 
   const plan = await prisma.mealPlan.findFirst({ where: { id: input.mealPlanId, orgId } })
   if (!plan) throw new AppError(404, 'NOT_FOUND', '식단을 찾을 수 없습니다')
 
-  return prisma.survey.create({
+  const survey = await prisma.survey.create({
     data: {
       mealPlanId: input.mealPlanId,
       type: input.type,
@@ -62,6 +64,40 @@ export async function createSurvey(input: CreateSurveyInput, createdBy: string, 
     },
     include: SURVEY_BASE_INCLUDE,
   })
+
+  // T-074: 생성 즉시 초대 알림 발송 (응답 블로킹 없이 비동기)
+  sendSurveyInvites(survey.id, orgId, input.type).catch((err) =>
+    logger.error({ err, surveyId: survey.id }, '[T-074] 설문 초대 알림 발송 실패'),
+  )
+
+  return survey
+}
+
+// ── T-074: 설문 초대 알림 ─────────────────────────────────
+
+async function sendSurveyInvites(surveyId: string, orgId: string, type: string) {
+  const users = await prisma.user.findMany({
+    where: { orgId, role: { in: ['student', 'staff', 'guardian'] } },
+    select: { id: true },
+  })
+  if (users.length === 0) return
+
+  const title = '📋 새로운 설문이 등록됐습니다'
+  const body =
+    type === 'need_check'
+      ? '알레르기 대체 식단 필요 여부를 확인해 주세요.'
+      : '선호하는 대체 식단 메뉴를 선택해 주세요.'
+
+  await Promise.allSettled(
+    users.map((u) =>
+      withRetry(
+        () => dispatch({ userId: u.id, title, body, type: 'survey_invite', data: { surveyId } }),
+        { maxRetries: 2, label: `survey_invite:${u.id}` },
+      ),
+    ),
+  )
+
+  logger.info({ surveyId, orgId, count: users.length }, '[T-074] 설문 초대 알림 발송 완료')
 }
 
 // ── T-072: POST /surveys/:id/responses ───────────────────
