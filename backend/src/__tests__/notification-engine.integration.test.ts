@@ -36,7 +36,7 @@ vi.mock('../lib/prisma', () => ({
 vi.mock('../services/notification/email.adapter', () => ({
   emailAdapter: { channel: 'email', send: vi.fn().mockResolvedValue(undefined) },
 }))
-vi.mock('../../services/notification/push.adapter', () => ({
+vi.mock('../services/notification/push.adapter', () => ({
   pushAdapter: { channel: 'push', send: vi.fn().mockResolvedValue(undefined) },
 }))
 
@@ -47,10 +47,16 @@ import { emailAdapter } from '../services/notification/email.adapter'
 
 // ── 픽스처 ─────────────────────────────────────────────────
 const ORG_ID = 'org-test'
-const USER_STUDENT = { id: 'u-student', orgId: ORG_ID, role: 'student', email: 'student@test.com', groupInfo: null }
+const USER_STUDENT = {
+  id: 'u-student',
+  orgId: ORG_ID,
+  role: 'student',
+  email: 'student@test.com',
+  groupInfo: null,
+}
 
-const ALLERGEN_EGG  = { id: 'a-egg',  code: 1,  name: '난류' }
-const ALLERGEN_MILK = { id: 'a-milk', code: 2,  name: '우유' }
+const ALLERGEN_EGG = { id: 'a-egg', code: 1, name: '난류' }
+const ALLERGEN_MILK = { id: 'a-milk', code: 2, name: '우유' }
 
 const MEAL_PLAN_DB = {
   id: 'mp-1',
@@ -137,7 +143,9 @@ describe('시나리오 2: 공개 식단 수정(알레르기 추가) → menu_cha
   it('알레르기 변경이 없으면 발송하지 않는다', async () => {
     const samePlan = {
       orgId: ORG_ID,
-      items: [{ id: 'i1', name: '계란찜', allergens: [{ allergenId: 'a-egg', allergen: ALLERGEN_EGG }] }],
+      items: [
+        { id: 'i1', name: '계란찜', allergens: [{ allergenId: 'a-egg', allergen: ALLERGEN_EGG }] },
+      ],
     }
 
     await onPublishedMealChanged('mp-1', samePlan, samePlan)
@@ -177,8 +185,21 @@ describe('시나리오 3: pending 알레르기 → 알림 미발송 (PRD §11.1)
     const { matchAllergens } = await import('../services/allergy-engine/matcher')
 
     const result = matchAllergens(
-      [{ id: 'i1', name: '계란찜', allergens: [{ allergenId: 'a-egg', allergenCode: 1, allergenName: '난류' }] }],
-      [{ userId: 'u1', orgId: ORG_ID, role: 'student', allergens: [{ allergenId: 'a-egg', status: 'pending' }] }]
+      [
+        {
+          id: 'i1',
+          name: '계란찜',
+          allergens: [{ allergenId: 'a-egg', allergenCode: 1, allergenName: '난류' }],
+        },
+      ],
+      [
+        {
+          userId: 'u1',
+          orgId: ORG_ID,
+          role: 'student',
+          allergens: [{ allergenId: 'a-egg', status: 'pending' }],
+        },
+      ]
     )
 
     expect(result).toHaveLength(0)
@@ -189,16 +210,28 @@ describe('시나리오 3: pending 알레르기 → 알림 미발송 (PRD §11.1)
 
     const result = matchAllergens(
       [
-        { id: 'i1', name: '계란찜', allergens: [{ allergenId: 'a-egg', allergenCode: 1, allergenName: '난류' }] },
-        { id: 'i2', name: '미역국', allergens: [{ allergenId: 'a-milk', allergenCode: 2, allergenName: '우유' }] },
+        {
+          id: 'i1',
+          name: '계란찜',
+          allergens: [{ allergenId: 'a-egg', allergenCode: 1, allergenName: '난류' }],
+        },
+        {
+          id: 'i2',
+          name: '미역국',
+          allergens: [{ allergenId: 'a-milk', allergenCode: 2, allergenName: '우유' }],
+        },
       ],
-      [{
-        userId: 'u1', orgId: ORG_ID, role: 'student',
-        allergens: [
-          { allergenId: 'a-egg',  status: 'pending' },    // 난류 pending → 제외
-          { allergenId: 'a-milk', status: 'confirmed' },  // 우유 confirmed → 포함
-        ],
-      }]
+      [
+        {
+          userId: 'u1',
+          orgId: ORG_ID,
+          role: 'student',
+          allergens: [
+            { allergenId: 'a-egg', status: 'pending' }, // 난류 pending → 제외
+            { allergenId: 'a-milk', status: 'confirmed' }, // 우유 confirmed → 포함
+          ],
+        },
+      ]
     )
 
     expect(result).toHaveLength(1)
