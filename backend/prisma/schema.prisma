@@ -74,6 +74,7 @@ model User {
   allergens           UserAllergen[] @relation("UserAllergens")
   approvedAllergies   UserAllergen[] @relation("ApprovedAllergens")
   notifications           Notification[]
+  pushSubscriptions       PushSubscription[]
   auditLogs               AuditLog[]
   createdMealPlans        MealPlan[]          @relation("CreatedMealPlans")
   confirmedAlternatePlans AlternateMealPlan[] @relation("ConfirmedAlternatePlans")
@@ -114,6 +115,21 @@ model UserAllergen {
   approver User?    @relation("ApprovedAllergens", fields: [approvedBy], references: [id])
 
   @@map("user_allergens")
+}
+
+// ── M5: T-050 PushSubscription (웹 푸시 구독 저장) ────
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  endpoint  String
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, endpoint])
+  @@map("push_subscriptions")
 }
 
 // ── M1: T-015 Notification ────────────────────────────
