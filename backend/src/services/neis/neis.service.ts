@@ -88,7 +88,12 @@ export async function getNeisHistory(
   }
 
   const apiKey = process.env.NEIS_API_KEY
-  if (!apiKey) throw new Error('NEIS_API_KEY 환경 변수 미설정')
+  if (!apiKey) {
+    logger.warn('[T-059] NEIS_API_KEY 미설정 — 급식 이력 없이 진행')
+    const empty: NeisHistoryContext = { period: { from: fromStr, to: toStr }, meals: [] }
+    cache.set(key, empty)
+    return empty
+  }
 
   const url = new URL(NEIS_BASE)
   url.searchParams.set('KEY',                apiKey)
