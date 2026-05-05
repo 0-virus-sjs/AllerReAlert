@@ -11,6 +11,8 @@ import { AlternateMealPage } from './pages/AlternateMealPage'
 import { AllergenProfilePage } from './pages/AllergenProfilePage'
 import { NotificationCenterPage } from './pages/NotificationCenterPage'
 import { AIMealPlanPage } from './pages/AIMealPlanPage'
+import { SurveyPage } from './pages/SurveyPage'
+import { SurveyManagementPage } from './pages/SurveyManagementPage'
 
 const queryClient = new QueryClient()
 
@@ -32,15 +34,16 @@ function App() {
                 <Route path="/notifications" element={<NotificationCenterPage />} />
                 <Route path="/profile" element={<div>내 프로필</div>} />
                 <Route path="/allergens" element={<AllergenProfilePage />} />
-                <Route path="/surveys" element={<div>설문·투표</div>} />
+                <Route path="/surveys" element={<SurveyPage />} />
                 <Route path="/children" element={<div>자녀 알레르기</div>} />
                 <Route path="/analytics" element={<div>수요 대시보드</div>} />
                 <Route path="/alternates" element={<AlternateMealPage />} />
 
                 {/* 영양사 전용 */}
                 <Route element={<ProtectedRoute roles={['nutritionist']} />}>
-                  <Route path="/meals" element={<MealPlanPage />} />
-                  <Route path="/ai"    element={<AIMealPlanPage />} />
+                  <Route path="/meals"              element={<MealPlanPage />} />
+                  <Route path="/ai"                 element={<AIMealPlanPage />} />
+                  <Route path="/survey-management"  element={<SurveyManagementPage />} />
                 </Route>
 
                 {/* 관리자 전용 */}
