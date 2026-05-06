@@ -5,9 +5,9 @@ import helmet from 'helmet'
 import pinoHttp from 'pino-http'
 import compression from 'compression'
 import cookieParser from 'cookie-parser'
-import rateLimit from 'express-rate-limit'
 import dotenv from 'dotenv'
 import { logger } from './lib/logger'
+import { generalLimiter } from './middlewares/rateLimits'
 import { registerBackupJob } from './jobs/backupJob'
 import { registerScheduledPublishJob } from './jobs/scheduledPublishJob'
 import { registerAllergenAlertJob } from './jobs/allergenAlertJob'
@@ -32,7 +32,30 @@ const app = express()
 const PORT = process.env.PORT || 5000
 
 // ── 보안 ──────────────────────────────────────────────
-app.use(helmet())
+const isProd = process.env.NODE_ENV === 'production'
+
+// API 서버용 helmet 설정 — CSP·frame-ancestors·HSTS 명시 (NFR-SEC-001)
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'none'"],
+        connectSrc: ["'self'"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'none'"],
+        formAction: ["'none'"],
+      },
+    },
+    crossOriginResourcePolicy: { policy: 'same-site' },
+    crossOriginOpenerPolicy: { policy: 'same-origin' },
+    referrerPolicy: { policy: 'no-referrer' },
+    hsts: isProd
+      ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+      : false,
+  })
+)
+
+// CORS 화이트리스트 — CLIENT_URL(쉼표 구분)만 허용. Vercel 프로덕션·프리뷰 도메인을 등록.
 const allowedOrigins = (process.env.CLIENT_URL ?? '')
   .split(',')
   .map((o) => o.trim())
@@ -47,14 +70,9 @@ app.use(
     credentials: true,
   })
 )
-app.use(
-  rateLimit({
-    windowMs: 60 * 1000,
-    max: 100,
-    standardHeaders: true,
-    legacyHeaders: false,
-  })
-)
+
+// 글로벌 레이트 리밋 — 헬스체크는 제외
+app.use(generalLimiter)
 
 // ── 로깅 (pino-http) ──────────────────────────────────
 app.use(

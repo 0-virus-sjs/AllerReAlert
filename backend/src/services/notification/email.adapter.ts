@@ -40,11 +40,23 @@ export const emailAdapter: NotificationProvider = {
   },
 }
 
+// 이메일 본문 HTML 인터폴레이션 시 XSS 차단 (NFR-SEC-003)
+export function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 function buildHtml(payload: NotificationPayload): string {
+  const title = escapeHtml(payload.title)
+  const body = escapeHtml(payload.body).replace(/\n/g, '<br/>')
   return `
     <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-      <h2 style="color: #d32f2f;">⚠️ ${payload.title}</h2>
-      <p style="color: #333;">${payload.body}</p>
+      <h2 style="color: #d32f2f;">⚠️ ${title}</h2>
+      <p style="color: #333;">${body}</p>
       <hr style="border-color: #eee;" />
       <p style="color: #999; font-size: 12px;">
         AllerReAlert — 학교급식 알레르기 안심 알림 서비스<br/>
