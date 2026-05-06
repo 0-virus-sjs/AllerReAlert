@@ -7,13 +7,14 @@ import {
   logoutHandler,
   authenticate,
 } from '../controllers/auth.controller'
+import { authLimiter } from '../middlewares/rateLimits'
 
 const router = Router()
 
-router.post('/verify-org', verifyOrgHandler)
-router.post('/signup', signupHandler)
-router.post('/login', loginHandler)
-router.post('/refresh', refreshHandler)
+router.post('/verify-org', authLimiter, verifyOrgHandler)
+router.post('/signup', authLimiter, signupHandler)
+router.post('/login', authLimiter, loginHandler)
+router.post('/refresh', authLimiter, refreshHandler)
 router.post('/logout', authenticate, logoutHandler)
 
 export default router

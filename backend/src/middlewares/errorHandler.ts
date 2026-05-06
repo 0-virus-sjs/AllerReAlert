@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { ZodError } from 'zod'
 import { sendError } from './response'
+import { logger } from '../lib/logger'
 
 export class AppError extends Error {
   constructor(
@@ -30,6 +31,7 @@ export const errorHandler = (
     return
   }
 
-  console.error(err)
+  // 민감정보 마스킹된 logger로 출력
+  logger.error({ err }, 'Unhandled error')
   sendError(res, 500, 'INTERNAL_SERVER_ERROR', 'Internal server error')
 }
