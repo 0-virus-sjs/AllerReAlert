@@ -92,14 +92,22 @@ export async function verifyOrg(orgCode: string) {
   }
 }
 
-export async function login(email: string, password: string) {
+export async function login(email: string, password: string, ip?: string) {
   const user = await prisma.user.findUnique({ where: { email } })
   if (!user) {
+    // T-106: 존재하지 않는 계정 로그인 시도 기록
+    await prisma.auditLog.create({
+      data: { action: 'LOGIN_FAIL', targetType: 'auth', ip, after: { email, reason: 'USER_NOT_FOUND' } },
+    }).catch(() => {})
     throw new AppError(401, 'INVALID_CREDENTIALS', '이메일 또는 비밀번호가 올바르지 않습니다')
   }
 
   const match = await bcrypt.compare(password, user.passwordHash)
   if (!match) {
+    // T-106: 비밀번호 불일치 로그인 실패 기록
+    await prisma.auditLog.create({
+      data: { userId: user.id, action: 'LOGIN_FAIL', targetType: 'auth', ip, after: { reason: 'WRONG_PASSWORD' } },
+    }).catch(() => {})
     throw new AppError(401, 'INVALID_CREDENTIALS', '이메일 또는 비밀번호가 올바르지 않습니다')
   }
 

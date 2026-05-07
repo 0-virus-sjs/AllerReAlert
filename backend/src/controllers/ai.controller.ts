@@ -72,28 +72,44 @@ export async function recalculateNutritionHandler(req: Request, res: Response, n
     }
 
     const warnings: string[] = []
+    const suggestions: string[] = []
+
     const caloriesOk = calorieTarget
       ? totalCalories >= calorieTarget.min && totalCalories <= calorieTarget.max
       : true
     const proteinOk = proteinMin ? totalProtein >= proteinMin : true
 
     if (!caloriesOk && calorieTarget) {
-      warnings.push(
-        `총 칼로리 ${totalCalories} kcal가 목표 범위 (${calorieTarget.min}~${calorieTarget.max} kcal)를 벗어났습니다`,
-      )
+      const diff = totalCalories - calorieTarget.max
+      if (diff > 0) {
+        warnings.push(`총 칼로리 ${totalCalories} kcal가 목표 상한(${calorieTarget.max} kcal)을 ${diff} kcal 초과했습니다`)
+        suggestions.push(`고칼로리 반찬(튀김류·볶음류)을 구이·찜 조리법으로 교체하거나 1인분 제공량을 줄여 ${diff} kcal를 줄이세요.`)
+      } else {
+        const shortage = calorieTarget.min - totalCalories
+        warnings.push(`총 칼로리 ${totalCalories} kcal가 목표 하한(${calorieTarget.min} kcal)보다 ${shortage} kcal 부족합니다`)
+        suggestions.push(`밥량을 늘리거나 견과류·치즈 등 열량 보충 식품을 후식으로 추가해 ${shortage} kcal를 보충하세요.`)
+      }
     }
     if (!proteinOk && proteinMin) {
-      warnings.push(`총 단백질 ${totalProtein} g가 최소 기준 ${proteinMin} g에 미달합니다`)
+      const shortage = Math.round((proteinMin - totalProtein) * 10) / 10
+      warnings.push(`총 단백질 ${totalProtein} g가 최소 기준 ${proteinMin} g에 ${shortage} g 미달합니다`)
+      suggestions.push(`두부·달걀·생선 반찬을 추가하거나 육류 제공량을 늘려 단백질 ${shortage} g를 보충하세요.`)
+    }
+    // 지방 비율 경고 (총 칼로리 대비 30% 초과)
+    if (totalCalories > 0 && (totalFat * 9) / totalCalories > 0.3) {
+      warnings.push('지방에서 오는 열량이 전체의 30%를 초과합니다')
+      suggestions.push('튀김·전 메뉴를 줄이고 나물·생채류를 늘려 지방 비율을 낮추세요.')
     }
 
     sendSuccess(res, {
-      totalCalories:   Math.round(totalCalories),
-      totalNutrients:  {
+      totalCalories:  Math.round(totalCalories),
+      totalNutrients: {
         carbs:   Math.round(totalCarbs   * 10) / 10,
         protein: Math.round(totalProtein * 10) / 10,
         fat:     Math.round(totalFat     * 10) / 10,
       },
       validation: { caloriesOk, proteinOk, warnings },
+      suggestions,
     })
   } catch (err) {
     next(err)

@@ -13,6 +13,7 @@ import { registerScheduledPublishJob } from './jobs/scheduledPublishJob'
 import { registerAllergenAlertJob } from './jobs/allergenAlertJob'
 import { registerSurveyCloseJob } from './jobs/surveyCloseJob'
 import { registerSurveyReminderJob } from './jobs/surveyReminderJob'
+import { registerAuditLogPruneJob }  from './jobs/auditLogPruneJob'
 import router from './routes'
 import { errorHandler } from './middlewares/errorHandler'
 import { sendSuccess } from './middlewares/response'
@@ -109,6 +110,7 @@ app.listen(PORT, () => {
   registerAllergenAlertJob()
   registerSurveyCloseJob()
   registerSurveyReminderJob()
+  registerAuditLogPruneJob()
 })
 
 export default app

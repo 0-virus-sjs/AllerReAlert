@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Alert, Badge, Button, ButtonGroup, Container, ListGroup, Spinner } from 'react-bootstrap'
+import { Alert, Badge, Button, ButtonGroup, Card, Col, Container, Form, ListGroup, Row, Spinner } from 'react-bootstrap'
 import { notificationsApi, type NotificationItem } from '../services/notifications.api'
 import { usePushSubscription } from '../hooks/usePushSubscription'
 
@@ -32,6 +32,34 @@ export function NotificationCenterPage() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<Filter>('all')
   const [page] = useState(1)
+
+  // T-104: 알림 채널·시간 설정
+  const [channels, setChannels] = useState<('email' | 'push')[]>(['email'])
+  const [quietStart, setQuietStart] = useState('')
+  const [quietEnd, setQuietEnd]     = useState('')
+  const [settingsSaved, setSettingsSaved] = useState(false)
+  const [savingSettings, setSavingSettings] = useState(false)
+
+  async function handleSaveSettings() {
+    setSavingSettings(true)
+    try {
+      await notificationsApi.updateSettings({
+        channels,
+        quietHoursStart: quietStart || undefined,
+        quietHoursEnd:   quietEnd   || undefined,
+      })
+      setSettingsSaved(true)
+      setTimeout(() => setSettingsSaved(false), 2500)
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
+  function toggleChannel(ch: 'email' | 'push') {
+    setChannels((prev) =>
+      prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch]
+    )
+  }
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -143,6 +171,55 @@ export function NotificationCenterPage() {
           })}
         </ListGroup>
       )}
+
+      {/* T-104: 알림 채널·시간 설정 */}
+      <Card className="mt-4 shadow-sm">
+        <Card.Header className="bg-white fw-semibold small">알림 설정</Card.Header>
+        <Card.Body>
+          <p className="small text-muted mb-2">수신 채널</p>
+          <Row className="g-2 mb-3">
+            {(['email', 'push'] as const).map((ch) => (
+              <Col xs="auto" key={ch}>
+                <Form.Check
+                  type="switch"
+                  id={`ch-${ch}`}
+                  label={ch === 'email' ? '이메일' : '웹 푸시'}
+                  checked={channels.includes(ch)}
+                  onChange={() => toggleChannel(ch)}
+                />
+              </Col>
+            ))}
+          </Row>
+
+          <p className="small text-muted mb-2">방해 금지 시간 (이 시간대엔 알림 미발송)</p>
+          <Row className="g-2 mb-3">
+            <Col xs="auto">
+              <Form.Control
+                type="time"
+                size="sm"
+                value={quietStart}
+                onChange={(e) => setQuietStart(e.target.value)}
+                aria-label="방해 금지 시작 시각"
+              />
+            </Col>
+            <Col xs="auto" className="d-flex align-items-center small text-muted">~</Col>
+            <Col xs="auto">
+              <Form.Control
+                type="time"
+                size="sm"
+                value={quietEnd}
+                onChange={(e) => setQuietEnd(e.target.value)}
+                aria-label="방해 금지 종료 시각"
+              />
+            </Col>
+          </Row>
+
+          {settingsSaved && <Alert variant="success" className="py-1 small mb-2">저장됐습니다.</Alert>}
+          <Button size="sm" variant="primary" disabled={savingSettings} onClick={handleSaveSettings}>
+            {savingSettings ? <Spinner size="sm" animation="border" /> : '저장'}
+          </Button>
+        </Card.Body>
+      </Card>
     </Container>
   )
 }
