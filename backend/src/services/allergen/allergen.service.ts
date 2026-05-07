@@ -79,6 +79,12 @@ export async function registerAllergen(
     include: USER_ALLERGEN_INCLUDE,
   })
 
+  // T-106: 알레르기 등록 감사 로그
+  await prisma.auditLog.create({
+    data: { userId, action: 'ALLERGEN_REGISTER', targetType: 'user_allergen', targetId: record.id,
+      after: { allergenId: record.allergenId, status } },
+  }).catch(() => {})
+
   return decodeEntry(record)
 }
 
@@ -118,6 +124,12 @@ export async function updateAllergen(
     include: USER_ALLERGEN_INCLUDE,
   })
 
+  // T-106: 알레르기 수정 감사 로그
+  await prisma.auditLog.create({
+    data: { userId, action: 'ALLERGEN_UPDATE', targetType: 'user_allergen', targetId: id,
+      before: { status: record.status }, after: { status } },
+  }).catch(() => {})
+
   return decodeEntry(updated)
 }
 
@@ -125,6 +137,12 @@ export async function deleteAllergen(id: string, userId: string) {
   const record = await prisma.userAllergen.findFirst({ where: { id, userId } })
   if (!record) throw new AppError(404, 'NOT_FOUND', '알레르기 항목을 찾을 수 없습니다')
   await prisma.userAllergen.delete({ where: { id } })
+
+  // T-106: 알레르기 삭제 감사 로그
+  await prisma.auditLog.create({
+    data: { userId, action: 'ALLERGEN_DELETE', targetType: 'user_allergen', targetId: id,
+      before: { allergenId: record.allergenId } },
+  }).catch(() => {})
 }
 
 // ── T-049: GET /users/me/alternate-meals?date= ───────────

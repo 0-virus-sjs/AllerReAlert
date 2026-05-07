@@ -66,7 +66,8 @@ export async function verifyOrgHandler(req: Request, res: Response, next: NextFu
 export async function loginHandler(req: Request, res: Response, next: NextFunction) {
   try {
     const { email, password } = loginSchema.parse(req.body)
-    const { accessToken, refreshToken, user } = await login(email, password)
+    const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() ?? req.ip
+    const { accessToken, refreshToken, user } = await login(email, password, ip)
     res.cookie(REFRESH_COOKIE, refreshToken, refreshCookieOptions)
     sendSuccess(res, { accessToken, user })
   } catch (err) {
