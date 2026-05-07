@@ -59,7 +59,6 @@ const USER_STUDENT = {
 }
 
 const ALLERGEN_EGG = { id: 'a-egg', code: 1, name: '난류' }
-const ALLERGEN_MILK = { id: 'a-milk', code: 2, name: '우유' }
 
 const MEAL_PLAN_DB = {
   id: 'mp-1',
