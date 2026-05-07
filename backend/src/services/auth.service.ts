@@ -1,8 +1,22 @@
 import bcrypt from 'bcrypt'
+import crypto from 'crypto'
 import type { Prisma, UserRole } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { signAccessToken, signRefreshToken, signTempToken, verifyRefreshToken, verifyTempToken } from '../lib/jwt'
 import { AppError } from '../middlewares/errorHandler'
+
+/** 학생 전용 8자리 연동코드 생성 (충돌 시 재시도) */
+async function generateUniqueLinkCode(): Promise<string> {
+  const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // 혼동 문자(0,O,1,I) 제외
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const code = Array.from(crypto.randomBytes(8))
+      .map((b) => CHARS[b % CHARS.length])
+      .join('')
+    const exists = await prisma.user.findUnique({ where: { linkCode: code }, select: { id: true } })
+    if (!exists) return code
+  }
+  throw new Error('linkCode 생성 실패: 재시도 초과')
+}
 
 export interface SignupInput {
   tempToken: string
@@ -37,6 +51,7 @@ export async function signup(input: SignupInput) {
   }
 
   const passwordHash = await bcrypt.hash(input.password, 12)
+  const linkCode = input.role === 'student' ? await generateUniqueLinkCode() : undefined
 
   const user = await prisma.user.create({
     data: {
@@ -46,11 +61,12 @@ export async function signup(input: SignupInput) {
       email: input.email,
       phone: input.phone,
       groupInfo: (input.groupInfo ?? {}) as Prisma.InputJsonValue,
+      linkCode,
       passwordHash,
       consentedAt: new Date(),
       guardianConsentRequired: input.guardianConsentRequired,
     },
-    select: { id: true, name: true, email: true, role: true, orgId: true },
+    select: { id: true, name: true, email: true, role: true, orgId: true, linkCode: true },
   })
 
   return user

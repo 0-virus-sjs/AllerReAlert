@@ -63,6 +63,7 @@ model User {
   email        String   @unique
   phone        String?
   groupInfo    Json?    @map("group_info")
+  linkCode                 String?   @unique @map("link_code")  // 학생 전용 연동코드 (보호자가 사용)
   passwordHash             String    @map("password_hash")
   refreshTokenHash         String?   @map("refresh_token_hash")
   consentedAt              DateTime? @map("consented_at")
@@ -81,9 +82,28 @@ model User {
   confirmedAlternatePlans AlternateMealPlan[] @relation("ConfirmedAlternatePlans")
   createdSurveys          Survey[]            @relation("CreatedSurveys")
   surveyResponses         SurveyResponse[]
+  guardianLinks           GuardianStudent[]   @relation("GuardianLinks")
+  studentLinks            GuardianStudent[]   @relation("StudentLinks")
 
   @@index([orgId, role])
   @@map("users")
+}
+
+// ── M10: T-100 GuardianStudent (보호자-학생 연동) ────
+
+model GuardianStudent {
+  id         String   @id @default(cuid())
+  guardianId String   @map("guardian_id")
+  studentId  String   @map("student_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  guardian User @relation("GuardianLinks", fields: [guardianId], references: [id], onDelete: Cascade)
+  student  User @relation("StudentLinks",  fields: [studentId],  references: [id], onDelete: Cascade)
+
+  @@unique([guardianId, studentId])
+  @@index([guardianId])
+  @@index([studentId])
+  @@map("guardian_students")
 }
 
 // ── M1: T-011 Allergen / UserAllergen ────────────────
