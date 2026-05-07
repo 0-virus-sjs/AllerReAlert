@@ -4,7 +4,7 @@ import { logger } from '../lib/logger'
 import { withAdvisoryLock, LOCK_KEYS } from '../lib/advisory-lock'
 import { withRetry } from '../lib/retry'
 import { runAllergenCheck } from '../services/allergy-engine/engine'
-import { dispatch } from '../services/notification/dispatcher'
+import { dispatchWithGuardians } from '../services/notification/dispatcher'
 import { alertQueue } from '../services/notification/job-queue'
 
 // 기본 실행 시각: 매일 07:00 (환경 변수로 덮어쓰기 가능)
@@ -20,7 +20,7 @@ async function processOrgAlert(orgId: string, date: Date): Promise<void> {
   await Promise.allSettled(
     matches.map((match) =>
       withRetry(
-        () => dispatch({
+        () => dispatchWithGuardians({
           userId: match.userId,
           title: '⚠️ 오늘 급식 알레르기 주의',
           body: `오늘 급식에 알레르기 유발 메뉴가 포함되어 있습니다. 식단을 확인하세요.`,

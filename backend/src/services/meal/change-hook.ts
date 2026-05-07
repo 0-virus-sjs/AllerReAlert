@@ -1,6 +1,6 @@
 import { prisma } from '../../lib/prisma'
 import { logger } from '../../lib/logger'
-import { dispatch } from '../notification/dispatcher'
+import { dispatchWithGuardians } from '../notification/dispatcher'
 
 // meal.service.ts의 MEAL_PLAN_INCLUDE와 동일한 형태
 interface AllergenRef { id: string; code: number; name: string }
@@ -71,7 +71,7 @@ export async function onPublishedMealChanged(
 
     await Promise.allSettled(
       [...userAllergenMap.entries()].map(([userId, names]) =>
-        dispatch({
+        dispatchWithGuardians({
           userId,
           title: '⚠️ 급식 메뉴 변경 알림',
           body: `식단이 수정되어 알레르기(${names.join(', ')}) 유발 메뉴가 추가됐습니다. 식단을 확인하세요.`,

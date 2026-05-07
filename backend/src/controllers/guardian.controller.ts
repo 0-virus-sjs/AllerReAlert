@@ -5,6 +5,7 @@ import {
   linkGuardianToStudent,
   getChildren,
   getChildAllergens,
+  approveAllergen,
 } from '../services/guardian/guardian.service'
 
 const linkSchema = z.object({
@@ -35,6 +36,22 @@ export async function getChildAllergensHandler(req: Request, res: Response, next
     const { studentId } = req.params
     const allergens = await getChildAllergens(req.user!.sub, studentId)
     sendSuccess(res, allergens)
+  } catch (err) {
+    next(err)
+  }
+}
+
+const approvalSchema = z.object({
+  action: z.enum(['confirmed', 'rejected']),
+  reason: z.string().max(500).optional(),
+})
+
+export async function approveAllergenHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { id } = req.params
+    const { action, reason } = approvalSchema.parse(req.body)
+    const result = await approveAllergen(req.user!.sub, id, action, reason)
+    sendSuccess(res, result)
   } catch (err) {
     next(err)
   }
