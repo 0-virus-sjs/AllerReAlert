@@ -15,6 +15,7 @@ import { SurveyPage } from './pages/SurveyPage'
 import { SurveyManagementPage } from './pages/SurveyManagementPage'
 import { AnalyticsDashboardPage } from './pages/AnalyticsDashboardPage'
 import { AdminPanelPage }         from './pages/AdminPanelPage'
+import { GuardianApprovalsPage }  from './pages/GuardianApprovalsPage'
 
 const queryClient = new QueryClient()
 
@@ -37,7 +38,10 @@ function App() {
                 <Route path="/profile" element={<div>내 프로필</div>} />
                 <Route path="/allergens" element={<AllergenProfilePage />} />
                 <Route path="/surveys" element={<SurveyPage />} />
-                <Route path="/children" element={<div>자녀 알레르기</div>} />
+                {/* 보호자 전용 */}
+                <Route element={<ProtectedRoute roles={['guardian']} />}>
+                  <Route path="/children" element={<GuardianApprovalsPage />} />
+                </Route>
                 <Route path="/analytics" element={<AnalyticsDashboardPage />} />
                 <Route path="/alternates" element={<AlternateMealPage />} />
 
