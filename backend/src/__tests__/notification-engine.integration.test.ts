@@ -22,6 +22,9 @@ vi.mock('../lib/prisma', () => ({
     user: {
       findUnique: vi.fn(),
     },
+    guardianStudent: {
+      findMany: vi.fn().mockResolvedValue([]), // 보호자 없음 기본값
+    },
     notification: {
       create: vi.fn().mockResolvedValue({}),
     },
@@ -56,7 +59,6 @@ const USER_STUDENT = {
 }
 
 const ALLERGEN_EGG = { id: 'a-egg', code: 1, name: '난류' }
-const ALLERGEN_MILK = { id: 'a-milk', code: 2, name: '우유' }  // eslint-disable-line @typescript-eslint/no-unused-vars
 
 const MEAL_PLAN_DB = {
   id: 'mp-1',
