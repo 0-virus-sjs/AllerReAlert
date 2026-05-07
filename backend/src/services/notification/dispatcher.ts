@@ -79,3 +79,31 @@ export async function dispatch(input: DispatchInput): Promise<void> {
     }
   })
 }
+
+/**
+ * T-102: 학생에게 알림 발송 후 연동된 보호자에게도 동일 알림을 병렬 발송.
+ * 학생이 아닌 userId이면 dispatch 단독 실행.
+ */
+export async function dispatchWithGuardians(input: DispatchInput): Promise<void> {
+  const user = await prisma.user.findUnique({
+    where: { id: input.userId },
+    select: { role: true },
+  })
+
+  // 학생이 아니면 일반 dispatch로 처리
+  if (user?.role !== 'student') {
+    return dispatch(input)
+  }
+
+  const guardianLinks = await prisma.guardianStudent.findMany({
+    where: { studentId: input.userId },
+    select: { guardianId: true },
+  })
+
+  await Promise.allSettled([
+    dispatch(input),
+    ...guardianLinks.map(({ guardianId }) =>
+      dispatch({ ...input, userId: guardianId })
+    ),
+  ])
+}
