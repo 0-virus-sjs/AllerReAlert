@@ -25,7 +25,9 @@ if (process.env.SENTRY_DSN) {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV ?? 'development',
-    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.2 : 1.0,
+    release: process.env.APP_VERSION,   // Railway: git SHA 환경 변수로 주입
+    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+    ignoreErrors: ['AbortError', 'ECONNRESET'],
   })
 }
 
