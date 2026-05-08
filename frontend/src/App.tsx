@@ -16,6 +16,7 @@ import { SurveyManagementPage } from './pages/SurveyManagementPage'
 import { AnalyticsDashboardPage } from './pages/AnalyticsDashboardPage'
 import { AdminPanelPage }         from './pages/AdminPanelPage'
 import { GuardianApprovalsPage }  from './pages/GuardianApprovalsPage'
+import { ProfilePage }            from './pages/ProfilePage'
 
 const queryClient = new QueryClient()
 
@@ -35,7 +36,7 @@ function App() {
               <Route element={<AppLayout />}>
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/notifications" element={<NotificationCenterPage />} />
-                <Route path="/profile" element={<div>내 프로필</div>} />
+                <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/allergens" element={<AllergenProfilePage />} />
                 <Route path="/surveys" element={<SurveyPage />} />
                 {/* 보호자 전용 */}
