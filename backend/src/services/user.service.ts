@@ -10,6 +10,7 @@ const userSelect = {
   orgId: true,
   phone: true,
   groupInfo: true,
+  linkCode: true,        // 학생 전용 보호자 연동코드 (T-100)
   consentedAt: true,
   guardianConsentRequired: true,
   createdAt: true,
