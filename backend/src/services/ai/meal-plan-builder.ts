@@ -21,7 +21,7 @@ export interface MealItemOutput {
   category: 'rice' | 'soup' | 'side' | 'dessert'
   name: string
   calories: number | null
-  nutrients: { carbs?: number | null; protein?: number | null; fat?: number | null } | null
+  nutrients?: { carbs?: number | null; protein?: number | null; fat?: number | null } | null
   allergenCodes: number[]
 }
 
