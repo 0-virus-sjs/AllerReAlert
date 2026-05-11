@@ -32,7 +32,7 @@ export async function publishMeal(id: string, scheduledAt?: string): Promise<Mea
 
 export async function exportMealPdf(month: string): Promise<void> {
   const response = await api.get('/meals/export', {
-    params: { date: month, format: 'pdf' },
+    params: { month },
     responseType: 'blob',
   })
   const url = URL.createObjectURL(new Blob([response.data as BlobPart], { type: 'application/pdf' }))

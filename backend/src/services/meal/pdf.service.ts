@@ -1,6 +1,7 @@
 import PDFDocument from 'pdfkit'
 import { getMealPlans } from './meal.service'
 import { prisma } from '../../lib/prisma'
+import { registerKoreanFonts } from '../../lib/pdf-fonts'
 
 const CATEGORY_LABEL: Record<string, string> = {
   rice: '밥', soup: '국', side: '반찬', dessert: '후식',
@@ -39,22 +40,23 @@ export async function generateMealPdf(options: PdfOptions): Promise<Buffer> {
 
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 40, size: 'A4' })
+    registerKoreanFonts(doc)
     const chunks: Buffer[] = []
     doc.on('data', (c: Buffer) => chunks.push(c))
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
 
     // ── 헤더 ───────────────────────────────────────────
-    doc.fontSize(16).font('Helvetica-Bold')
+    doc.fontSize(16).font('Korean-Bold')
       .text(`${org?.name ?? '학교'} 급식 식단표`, { align: 'center' })
-    doc.fontSize(11).font('Helvetica')
+    doc.fontSize(11).font('Korean')
       .text(month, { align: 'center' })
     doc.moveDown(0.5)
 
     if (dangerCodes.size > 0) {
       const names = userAllergens.map((ua) => ua.allergen.name).join(', ')
       doc.fontSize(9).fillColor('red')
-        .text(`⚠️ 주의 알레르기: ${names}`, { align: 'left' })
+        .text(`※ 주의 알레르기: ${names}`, { align: 'left' })
       doc.fillColor('black')
     }
 
@@ -73,9 +75,9 @@ export async function generateMealPdf(options: PdfOptions): Promise<Buffer> {
       })
       const statusLabel = plan.status === 'published' ? '공개' : '초안'
 
-      doc.fontSize(10).font('Helvetica-Bold')
+      doc.fontSize(10).font('Korean-Bold')
         .text(`${dateStr}  [${statusLabel}]`, { continued: false })
-      doc.font('Helvetica')
+      doc.font('Korean')
 
       if (plan.items.length === 0) {
         doc.fontSize(9).fillColor('gray').text('  식단 없음')
@@ -86,7 +88,7 @@ export async function generateMealPdf(options: PdfOptions): Promise<Buffer> {
         const allergenCodes = item.allergens.map((a: { allergen: { code: number } }) => a.allergen.code)
         const isDangerous = allergenCodes.some((c: number) => dangerCodes.has(c))
         const allergenStr = allergenCodes.length > 0 ? `  [${allergenCodes.join(', ')}]` : ''
-        const prefix = isDangerous ? '⚠️ ' : '• '
+        const prefix = isDangerous ? '※ ' : '• '
         const catLabel = CATEGORY_LABEL[item.category] ?? item.category
 
         doc.fontSize(9)
