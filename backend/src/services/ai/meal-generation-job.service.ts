@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 
 export type MealJobStatus = 'queued' | 'running' | 'completed' | 'failed'
@@ -16,7 +17,7 @@ export async function enqueueMealPlanGeneration(
       orgId,
       requestedBy: userId,
       status: 'queued',
-      input,
+      input: input as Prisma.InputJsonValue,
     },
   })
   return { jobId: job.id, status: job.status as MealJobStatus }
@@ -50,7 +51,7 @@ export async function markJobCompleted(jobId: string, result: MealJobResult) {
     where: { id: jobId },
     data: {
       status: 'completed',
-      result,
+      result: result as unknown as Prisma.InputJsonValue,
       completedDays: result.mealPlans.length,
       totalDays: result.mealPlans.length,
     },

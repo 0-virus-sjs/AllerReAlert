@@ -23,7 +23,7 @@ async function processMealGenerationJob(jobId: string): Promise<void> {
   logger.info({ jobId, orgId: job.orgId }, 'meal-generation-job: starting')
 
   try {
-    const input = job.input as GenerateMealPlanInput
+    const input = job.input as unknown as GenerateMealPlanInput
     const result = await generateMealPlan(input, job.requestedBy, job.orgId)
     await markJobCompleted(jobId, result)
     logger.info({ jobId, days: result.mealPlans.length }, 'meal-generation-job: completed')

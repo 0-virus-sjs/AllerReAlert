@@ -14,6 +14,7 @@ import { registerAllergenAlertJob } from './jobs/allergenAlertJob'
 import { registerSurveyCloseJob } from './jobs/surveyCloseJob'
 import { registerSurveyReminderJob } from './jobs/surveyReminderJob'
 import { registerAuditLogPruneJob }  from './jobs/auditLogPruneJob'
+import { recoverStuckJobs } from './jobs/mealGenerationJob'
 import router from './routes'
 import { errorHandler } from './middlewares/errorHandler'
 import { sendSuccess } from './middlewares/response'
@@ -113,6 +114,7 @@ app.listen(PORT, () => {
   registerSurveyCloseJob()
   registerSurveyReminderJob()
   registerAuditLogPruneJob()
+  recoverStuckJobs().catch((err) => logger.error({ err }, 'meal-generation-job: recovery failed on startup'))
 })
 
 export default app
