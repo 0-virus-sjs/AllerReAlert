@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit'
 import type { AllergyOverviewItem, DailyDemandItem, MonthlyReport } from './analytics.service'
+import { registerKoreanFonts } from '../../lib/pdf-fonts'
 
 // ── T-083: CSV 생성 ──────────────────────────────────────────────────────────
 
@@ -53,23 +54,24 @@ export async function generateAnalyticsPdf(
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 40, size: 'A4' })
+    registerKoreanFonts(doc)
     const chunks: Buffer[] = []
     doc.on('data', (c: Buffer) => chunks.push(c))
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
 
     // ── 표지 ───────────────────────────────────────────────────────────────
-    doc.fontSize(18).font('Helvetica-Bold')
+    doc.fontSize(18).font('Korean-Bold')
       .text('수요 집계 대시보드', { align: 'center' })
-    doc.fontSize(12).font('Helvetica')
+    doc.fontSize(12).font('Korean')
       .text(`${report.month} 운영 리포트`, { align: 'center' })
     doc.moveDown()
     doc.moveTo(40, doc.y).lineTo(555, doc.y).stroke()
     doc.moveDown()
 
     // ── 섹션 1: 월간 핵심 지표 ─────────────────────────────────────────────
-    doc.fontSize(13).font('Helvetica-Bold').text('1. 월간 핵심 지표')
-    doc.fontSize(10).font('Helvetica')
+    doc.fontSize(13).font('Korean-Bold').text('1. 월간 핵심 지표')
+    doc.fontSize(10).font('Korean')
     doc.moveDown(0.5)
 
     const kpiRows = [
@@ -78,14 +80,14 @@ export async function generateAnalyticsPdf(
       ['설문 참여율', `${(report.surveyParticipationRate * 100).toFixed(1)}%  (마감 설문 ${report.surveyCount}건)`],
     ]
     for (const [label, value] of kpiRows) {
-      doc.text(`  • ${label}: `, { continued: true }).font('Helvetica-Bold').text(value)
-      doc.font('Helvetica')
+      doc.text(`  • ${label}: `, { continued: true }).font('Korean-Bold').text(value)
+      doc.font('Korean')
     }
     doc.moveDown()
 
     // ── 섹션 2: 알레르기 유형별 분포 ───────────────────────────────────────
-    doc.fontSize(13).font('Helvetica-Bold').text('2. 알레르기 유형별 분포')
-    doc.fontSize(9).font('Helvetica')
+    doc.fontSize(13).font('Korean-Bold').text('2. 알레르기 유형별 분포')
+    doc.fontSize(9).font('Korean')
     doc.moveDown(0.5)
 
     const colWidths = [200, 80, 80]
@@ -98,8 +100,8 @@ export async function generateAnalyticsPdf(
     doc.moveDown()
 
     // ── 섹션 3: 일별 대체식 수요 ───────────────────────────────────────────
-    doc.fontSize(13).font('Helvetica-Bold').text('3. 일별 대체식 수요')
-    doc.fontSize(9).font('Helvetica')
+    doc.fontSize(13).font('Korean-Bold').text('3. 일별 대체식 수요')
+    doc.fontSize(9).font('Korean')
     doc.moveDown(0.5)
 
     const demandColWidths = [120, 80, 260]
@@ -139,7 +141,7 @@ function drawTableRow(doc: PDFKit.PDFDocument, cells: string[], widths: number[]
   }
 
   let x = x0
-  doc.font(isHeader ? 'Helvetica-Bold' : 'Helvetica').fontSize(9)
+  doc.font(isHeader ? 'Korean-Bold' : 'Korean').fontSize(9)
   for (let i = 0; i < cells.length; i++) {
     doc.text(cells[i], x + 3, y + 4, { width: widths[i] - 6, ellipsis: true, lineBreak: false })
     x += widths[i]
