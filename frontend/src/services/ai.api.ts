@@ -25,12 +25,31 @@ export interface GenerateMealPlanResult {
   mealPlans: GeneratedPlanSummary[]
 }
 
-export async function generateMealPlan(
+export interface GenerateMealPlanJobStart {
+  jobId: string
+  status: 'queued' | 'running' | 'completed' | 'failed'
+}
+
+export interface GenerateMealPlanJob {
+  id: string
+  status: 'queued' | 'running' | 'completed' | 'failed'
+  totalDays: number | null
+  completedDays: number
+  result: GenerateMealPlanResult | null
+  error: string | null
+}
+
+export async function startMealPlanGeneration(
   input: GenerateMealPlanInput,
-): Promise<GenerateMealPlanResult> {
-  const { data } = await api.post<ApiOk<GenerateMealPlanResult>>('/ai/generate-meal-plan', input, {
+): Promise<GenerateMealPlanJobStart> {
+  const { data } = await api.post<ApiOk<GenerateMealPlanJobStart>>('/ai/generate-meal-plan', input, {
     timeout: 40_000,
   })
+  return data.data
+}
+
+export async function getMealPlanGenerationJob(jobId: string): Promise<GenerateMealPlanJob> {
+  const { data } = await api.get<ApiOk<GenerateMealPlanJob>>(`/ai/generate-meal-plan/jobs/${jobId}`)
   return data.data
 }
 
