@@ -63,6 +63,9 @@ model User {
   email        String   @unique
   phone        String?
   groupInfo    Json?    @map("group_info")
+  grade        Int?                                 // T-121 학생 학년 (1~12)
+  classNo      String?  @map("class_no")            // T-121 학생 반 (문자 허용)
+  studentCode  String?  @map("student_code")        // T-121 학생 학번
   linkCode                 String?   @unique @map("link_code")  // 학생 전용 연동코드 (보호자가 사용)
   passwordHash             String    @map("password_hash")
   refreshTokenHash         String?   @map("refresh_token_hash")
@@ -86,6 +89,7 @@ model User {
   studentLinks            GuardianStudent[]   @relation("StudentLinks")
 
   @@index([orgId, role])
+  @@index([orgId, grade, classNo])
   @@map("users")
 }
 
