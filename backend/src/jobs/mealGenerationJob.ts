@@ -1,11 +1,39 @@
 import { prisma } from '../lib/prisma'
 import { logger } from '../lib/logger'
-import { generateMealPlan, type GenerateMealPlanInput } from '../services/ai/ai.service'
+import {
+  buildMealPlanGenerationContext,
+  generateMealPlanWithAI,
+  saveGeneratedMealPlan,
+  type GenerateMealPlanInput,
+} from '../services/ai/ai.service'
 import {
   markJobRunning,
   markJobCompleted,
   markJobFailed,
+  updateJobProgress,
 } from '../services/ai/meal-generation-job.service'
+
+const CHUNK_SIZE = 5 // 영업일 단위
+
+function getWeekdaysBetween(from: string, to: string): string[] {
+  const days: string[] = []
+  const cur = new Date(from)
+  const end = new Date(to)
+  while (cur <= end) {
+    const dow = cur.getDay()
+    if (dow >= 1 && dow <= 5) days.push(cur.toISOString().slice(0, 10))
+    cur.setDate(cur.getDate() + 1)
+  }
+  return days
+}
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = []
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size))
+  }
+  return chunks
+}
 
 async function processMealGenerationJob(jobId: string): Promise<void> {
   const job = await prisma.mealGenerationJob.findUnique({ where: { id: jobId } })
@@ -24,9 +52,40 @@ async function processMealGenerationJob(jobId: string): Promise<void> {
 
   try {
     const input = job.input as unknown as GenerateMealPlanInput
-    const result = await generateMealPlan(input, job.requestedBy, job.orgId)
-    await markJobCompleted(jobId, result)
-    logger.info({ jobId, days: result.mealPlans.length }, 'meal-generation-job: completed')
+
+    // 컨텍스트는 job 시작 시 한 번만 조회 (NEIS 포함)
+    const ctx = await buildMealPlanGenerationContext(input, job.orgId, job.requestedBy)
+
+    // 전체 영업일 → chunk 분할
+    const allWeekdays = getWeekdaysBetween(input.period.from, input.period.to)
+    const chunks = chunkArray(allWeekdays, CHUNK_SIZE)
+    const totalDays = allWeekdays.length
+
+    await updateJobProgress(jobId, 0, totalDays)
+    logger.info({ jobId, totalDays, chunks: chunks.length }, 'meal-generation-job: chunk plan')
+
+    const allPlans: Array<{ id: string; date: string; itemCount: number }> = []
+    let completedDays = 0
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i]
+      const period = {
+        from: new Date(chunk[0]),
+        to:   new Date(chunk[chunk.length - 1]),
+      }
+
+      logger.info({ jobId, chunk: i + 1, of: chunks.length, from: chunk[0], to: chunk[chunk.length - 1] }, 'meal-generation-job: processing chunk')
+
+      const days  = await generateMealPlanWithAI(ctx, period)
+      const saved = await saveGeneratedMealPlan(days, job.orgId, job.requestedBy)
+
+      allPlans.push(...saved)
+      completedDays += saved.length
+      await updateJobProgress(jobId, completedDays, totalDays)
+    }
+
+    await markJobCompleted(jobId, { mealPlans: allPlans })
+    logger.info({ jobId, totalDays: allPlans.length }, 'meal-generation-job: completed')
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     await markJobFailed(jobId, message)
@@ -43,22 +102,20 @@ export function scheduleMealGenerationJob(jobId: string): void {
 }
 
 export async function recoverStuckJobs(): Promise<void> {
-  const STUCK_THRESHOLD_MS = 10 * 60 * 1000 // 10분
+  const STUCK_THRESHOLD_MS = 10 * 60 * 1000
 
-  // running 상태지만 10분 이상 지난 job → queued로 되돌림
   const stuckAt = new Date(Date.now() - STUCK_THRESHOLD_MS)
   const reset = await prisma.mealGenerationJob.updateMany({
     where: { status: 'running', updatedAt: { lt: stuckAt } },
-    data: { status: 'queued' },
+    data:  { status: 'queued' },
   })
   if (reset.count > 0) {
     logger.info({ count: reset.count }, 'meal-generation-job: reset stuck running jobs to queued')
   }
 
-  // queued 상태인 job을 모두 다시 processor에 등록
   const queued = await prisma.mealGenerationJob.findMany({
-    where: { status: 'queued' },
-    select: { id: true },
+    where:   { status: 'queued' },
+    select:  { id: true },
     orderBy: { createdAt: 'asc' },
   })
 

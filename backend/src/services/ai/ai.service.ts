@@ -2,12 +2,13 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../middlewares/errorHandler'
 import { applyAutoTagging } from '../meal/tagging.service'
-import { getNeisHistory } from '../neis/neis.service'
+import { getNeisHistory, type NeisHistoryContext } from '../neis/neis.service'
 import { getAIProvider } from './index'
 import { buildMealPlanMessages } from './meal-plan-builder'
 import { buildAlternateMessages } from './alternate-builder'
 import { validateMealPlan, validateAlternate } from './validator'
 import type { NutritionThresholds } from './validator'
+import type { DayMenuOutput } from './meal-plan-builder'
 
 // ── T-064 입력 타입 ────────────────────────────────────────
 
@@ -29,28 +30,39 @@ export interface SuggestAlternatesInput {
   excludeAllergenCodes: number[]
 }
 
-// ── T-064: 식단 생성 ───────────────────────────────────────
+// ── Step 8: 생성 컨텍스트 타입 ─────────────────────────────
 
-export async function generateMealPlan(
+export interface MealPlanGenerationContext {
+  orgId: string
+  userId: string
+  orgType: 'school' | 'company' | 'welfare' | 'military' | 'other'
+  neisHistory?: NeisHistoryContext
+  budget?: number
+  calorieTarget?: { min: number; max: number }
+  proteinMin?: number
+  preferences?: string[]
+  excludes?: string[]
+}
+
+// ── Step 8: 조직 정보 + NEIS 이력 조회 ────────────────────
+
+export async function buildMealPlanGenerationContext(
   input: GenerateMealPlanInput,
-  userId: string,
   orgId: string,
-) {
-  // 조직 정보 (orgType 확인)
+  userId: string,
+): Promise<MealPlanGenerationContext> {
   const org = await prisma.organization.findUnique({
     where: { id: orgId },
     select: { orgType: true },
   })
   if (!org) throw new AppError(404, 'NOT_FOUND', '조직을 찾을 수 없습니다')
 
-  const orgType = org.orgType as 'school' | 'company' | 'welfare' | 'military' | 'other'
+  const orgType = org.orgType as MealPlanGenerationContext['orgType']
 
-  // NEIS 이력 (school + 코드 제공 시만)
-  let neisHistory = undefined
+  let neisHistory: NeisHistoryContext | undefined
   if (orgType === 'school' && input.neisAtptCode && input.neisSchulCode) {
     const from = new Date(input.period.from)
     const to   = new Date(input.period.to)
-    // 최근 90일 이력 조회
     const histFrom = new Date(from)
     histFrom.setDate(histFrom.getDate() - 90)
     neisHistory = await getNeisHistory(
@@ -58,35 +70,60 @@ export async function generateMealPlan(
       input.neisSchulCode,
       histFrom,
       new Date(to),
-    ).catch(() => undefined)   // NEIS 실패해도 생성 계속 진행
+    ).catch(() => undefined)
   }
 
-  // 프롬프트 빌드
-  const messages = buildMealPlanMessages({
+  return {
+    orgId,
+    userId,
     orgType,
-    period: { from: new Date(input.period.from), to: new Date(input.period.to) },
+    neisHistory,
     budget:        input.budget,
     calorieTarget: input.calorieTarget,
     proteinMin:    input.proteinMin,
     preferences:   input.preferences,
     excludes:      input.excludes,
-    neisHistory,
+  }
+}
+
+// ── Step 8: AI 호출 + 검증 ────────────────────────────────
+
+export async function generateMealPlanWithAI(
+  ctx: MealPlanGenerationContext,
+  period: { from: Date; to: Date },
+): Promise<DayMenuOutput[]> {
+  const messages = buildMealPlanMessages({
+    orgType:       ctx.orgType,
+    period,
+    budget:        ctx.budget,
+    calorieTarget: ctx.calorieTarget,
+    proteinMin:    ctx.proteinMin,
+    preferences:   ctx.preferences,
+    excludes:      ctx.excludes,
+    neisHistory:   ctx.neisHistory,
   })
 
-  // AI 호출 + Zod 검증 (최대 2회 재시도)
   const provider = getAIProvider()
   const nutrition: NutritionThresholds = {
-    calorieMin: input.calorieTarget?.min,
-    calorieMax: input.calorieTarget?.max,
-    proteinMin: input.proteinMin,
+    calorieMin: ctx.calorieTarget?.min,
+    calorieMax: ctx.calorieTarget?.max,
+    proteinMin: ctx.proteinMin,
   }
   const aiResult = await validateMealPlan(messages, provider, nutrition)
+  return aiResult.mealPlan
+}
 
-  // DB 저장 — 날짜별 MealPlan + MealItems + 자동 태깅
-  const savedPlans = await prisma.$transaction(async (tx) => {
+// ── Step 8: DB 저장 ───────────────────────────────────────
+
+export async function saveGeneratedMealPlan(
+  days: DayMenuOutput[],
+  orgId: string,
+  userId: string,
+): Promise<Array<{ id: string; date: string; itemCount: number }>> {
+  return prisma.$transaction(async (tx) => {
     const results = []
 
-    for (const day of aiResult.mealPlan) {
+    for (const day of days) {
       const [y, m, d] = day.date.split('-').map(Number)
       const date = new Date(Date.UTC(y, m - 1, d))
 
@@ -108,7 +145,6 @@ export async function generateMealPlan(
         ),
       )
 
-      // T-033 자동 태깅
       await Promise.all(items.map((item) => applyAutoTagging(item.id, item.name, tx)))
 
       results.push({ id: plan.id, date: day.date, itemCount: items.length })
@@ -116,7 +152,21 @@ export async function generateMealPlan(
 
     return results
   })
+}
 
+// ── T-064: 식단 생성 (단일 호출 래퍼) ─────────────────────
+
+export async function generateMealPlan(
+  input: GenerateMealPlanInput,
+  userId: string,
+  orgId: string,
+) {
+  const ctx   = await buildMealPlanGenerationContext(input, orgId, userId)
+  const days  = await generateMealPlanWithAI(ctx, {
+    from: new Date(input.period.from),
+    to:   new Date(input.period.to),
+  })
+  const savedPlans = await saveGeneratedMealPlan(days, orgId, userId)
   return { mealPlans: savedPlans }
 }
 
@@ -130,14 +180,12 @@ export async function suggestAlternates(
     throw new AppError(400, 'BAD_REQUEST', '제외 알레르기 코드를 1개 이상 입력하세요')
   }
 
-  // 원본 MealItem 로드
   const originalItem = await prisma.mealItem.findUnique({
     where:   { id: input.mealItemId },
     include: { mealPlan: { select: { id: true, orgId: true } } },
   })
   if (!originalItem) throw new AppError(404, 'NOT_FOUND', '식단 메뉴를 찾을 수 없습니다')
 
-  // AlternateMealPlan.targetAllergenId 용 — 첫 번째 코드 기준
   const primaryCode = input.excludeAllergenCodes[0]
   const allergen = await prisma.allergen.findFirst({
     where: { code: primaryCode },
@@ -146,7 +194,6 @@ export async function suggestAlternates(
     throw new AppError(404, 'NOT_FOUND', `알레르기 코드 ${primaryCode}를 찾을 수 없습니다`)
   }
 
-  // 프롬프트 빌드
   const messages = buildAlternateMessages({
     originalItem: {
       name:     originalItem.name,
@@ -157,14 +204,12 @@ export async function suggestAlternates(
     candidateCount: 3,
   })
 
-  // AI 호출 + 알레르기 누설 검증
   const provider = getAIProvider()
   const aiResult = await validateAlternate(messages, provider, input.excludeAllergenCodes)
 
-  // DB 저장 — AlternateMealPlan(draft) + AlternateMealItems
   const altPlan = await prisma.alternateMealPlan.create({
     data: {
-      mealPlanId:      originalItem.mealPlanId,
+      mealPlanId:       originalItem.mealPlanId,
       targetAllergenId: allergen.id,
       status:           'draft',
       items: {
