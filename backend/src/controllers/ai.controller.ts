@@ -1,6 +1,8 @@
 import type { Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
-import { generateMealPlan, suggestAlternates } from '../services/ai/ai.service'
+import { suggestAlternates } from '../services/ai/ai.service'
+import { enqueueMealPlanGeneration, getMealGenerationJob } from '../services/ai/meal-generation-job.service'
+import { scheduleMealGenerationJob } from '../jobs/mealGenerationJob'
 import { sendSuccess } from '../middlewares/response'
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/
@@ -22,16 +24,36 @@ const generateSchema = z.object({
 })
 
 export async function generateMealPlanHandler(req: Request, res: Response, next: NextFunction) {
-  // T-064: 동기 처리 — max_tokens 8192 기준 단일 호출 ~25s + 재시도 버퍼
-  req.setTimeout(55_000)
-  res.setTimeout(55_000)
-
   try {
     const input  = generateSchema.parse(req.body)
     const userId = req.user!.sub
     const orgId  = req.user!.orgId
-    const result = await generateMealPlan(input, userId, orgId)
-    sendSuccess(res, result, 201)
+
+    const { jobId, status } = await enqueueMealPlanGeneration(
+      input as Record<string, unknown>,
+      userId,
+      orgId,
+    )
+    scheduleMealGenerationJob(jobId)
+
+    sendSuccess(res, { jobId, status }, 202)
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ── GET /ai/generate-meal-plan/jobs/:jobId ────────────────
+
+export async function getMealGenerationJobHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { jobId } = req.params
+    const orgId = req.user!.orgId
+    const job = await getMealGenerationJob(jobId, orgId)
+    if (!job) {
+      res.status(404).json({ status: 'error', code: 'NOT_FOUND', message: 'job을 찾을 수 없습니다' })
+      return
+    }
+    sendSuccess(res, job)
   } catch (err) {
     next(err)
   }
