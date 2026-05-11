@@ -4,7 +4,10 @@ import { useQuery } from '@tanstack/react-query'
 import { getMeals, exportMealPdf } from '../services/meals.api'
 import { getMyAllergens } from '../services/allergens.api'
 import { AllergenList } from '../components/allergen/AllergenList'
+import { MonthlyMealCalendar, type CalendarDayLevel } from '../components/MonthlyMealCalendar'
 import type { MealPlan } from '../types/meal'
+
+type CalendarView = 'calendar' | 'slider'
 
 const KO_DAYS = ['일', '월', '화', '수', '목', '금', '토']
 const CATEGORY_KO: Record<string, string> = {
@@ -40,6 +43,7 @@ export function UserDashboardPage() {
   const [selectedDate, setSelectedDate] = useState(today)
   const [pdfLoading,   setPdfLoading]   = useState(false)
   const [pdfError,     setPdfError]     = useState('')
+  const [view,         setView]         = useState<CalendarView>('calendar')
 
   const { data: allPlans = [], isLoading: mealsLoading } = useQuery({
     queryKey: ['meals', month],
@@ -163,58 +167,102 @@ export function UserDashboardPage() {
         </Alert>
       )}
 
-      {/* ── 날짜 탭 ──────────────────────────────────────── */}
-      <div
-        className="d-flex gap-1 mb-3 pb-1"
-        style={{ overflowX: 'auto', scrollbarWidth: 'none' }}
-      >
-        {days.map((date) => {
-          const ds         = formatDateStr(date)
-          const isSelected = ds === selectedDate
-          const isToday    = ds === today
-          const plan       = plans.find((p) => toDateStr(p.date) === ds)
-          const hasDanger  = plan?.items.some((item) =>
-            item.allergens.some((a) => confirmedIds.has(a.allergen.id)),
-          ) ?? false
-
-          return (
-            <button
-              key={ds}
-              onClick={() => setSelectedDate(ds)}
-              style={{
-                padding: '4px 10px 8px',
-                border: `1.5px solid ${isSelected ? '#A8D8E8' : isToday ? '#5DBD6A' : '#C0BBB4'}`,
-                background: isSelected ? '#CFECF3' : '#fff',
-                color: isSelected ? '#3A3030' : '#888',
-                fontFamily: 'IBM Plex Mono, monospace',
-                fontSize: 11,
-                borderRadius: 3,
-                flexShrink: 0,
-                cursor: 'pointer',
-                position: 'relative',
-              }}
-            >
-              {date.getDate()}({KO_DAYS[date.getDay()]})
-              {/* 식단 있음 + 위험 표시 도트 */}
-              {plan && (
-                <span
-                  style={{
-                    position: 'absolute',
-                    bottom: 3,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    width: 4,
-                    height: 4,
-                    borderRadius: '50%',
-                    background: hasDanger ? '#E06080' : '#5DBD6A',
-                    display: 'block',
-                  }}
-                />
-              )}
-            </button>
-          )
-        })}
+      {/* ── 보기 전환 ────────────────────────────────────── */}
+      <div className="d-flex gap-1 mb-2" role="tablist" aria-label="식단 보기 전환">
+        {(['calendar', 'slider'] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setView(v)}
+            aria-pressed={view === v}
+            style={{
+              padding: '3px 12px',
+              border: '1.5px solid #A8D8E8',
+              background: view === v ? '#CFECF3' : '#fff',
+              color: '#3A3030',
+              fontSize: 11,
+              borderRadius: 3,
+              cursor: 'pointer',
+            }}
+          >
+            {v === 'calendar' ? '캘린더' : '슬라이더'}
+          </button>
+        ))}
       </div>
+
+      {/* ── 날짜 선택 영역 (캘린더 / 슬라이더) ─────────────── */}
+      {view === 'calendar' ? (
+        <div className="mb-3">
+          <MonthlyMealCalendar
+            month={month}
+            today={today}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            plans={plans}
+            getDayLevel={(plan): CalendarDayLevel => {
+              const dangerous = plan.items.some((item) =>
+                item.allergens.some((a) => confirmedIds.has(a.allergen.id)),
+              )
+              if (dangerous) return 'danger'
+              const hasConfirmedAlt = plan.alternatePlans.some((ap) => ap.status === 'confirmed')
+              if (hasConfirmedAlt) return 'alt'
+              return 'normal'
+            }}
+          />
+        </div>
+      ) : (
+        <div
+          className="d-flex gap-1 mb-3 pb-1"
+          style={{ overflowX: 'auto', scrollbarWidth: 'none' }}
+        >
+          {days.map((date) => {
+            const ds         = formatDateStr(date)
+            const isSelected = ds === selectedDate
+            const isToday    = ds === today
+            const plan       = plans.find((p) => toDateStr(p.date) === ds)
+            const hasDanger  = plan?.items.some((item) =>
+              item.allergens.some((a) => confirmedIds.has(a.allergen.id)),
+            ) ?? false
+
+            return (
+              <button
+                key={ds}
+                onClick={() => setSelectedDate(ds)}
+                style={{
+                  padding: '4px 10px 8px',
+                  border: `1.5px solid ${isSelected ? '#A8D8E8' : isToday ? '#5DBD6A' : '#C0BBB4'}`,
+                  background: isSelected ? '#CFECF3' : '#fff',
+                  color: isSelected ? '#3A3030' : '#888',
+                  fontFamily: 'IBM Plex Mono, monospace',
+                  fontSize: 11,
+                  borderRadius: 3,
+                  flexShrink: 0,
+                  cursor: 'pointer',
+                  position: 'relative',
+                }}
+              >
+                {date.getDate()}({KO_DAYS[date.getDay()]})
+                {/* 식단 있음 + 위험 표시 도트 */}
+                {plan && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      bottom: 3,
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: 4,
+                      height: 4,
+                      borderRadius: '50%',
+                      background: hasDanger ? '#E06080' : '#5DBD6A',
+                      display: 'block',
+                    }}
+                  />
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {/* ── 선택 날짜 식단 (T-044) ───────────────────────── */}
       <div className="d-flex align-items-center gap-2 mb-2">

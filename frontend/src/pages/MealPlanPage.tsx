@@ -6,6 +6,9 @@ import type { MealItemInput, MealPlan } from '../types/meal'
 import { MealItemRow } from '../components/meal/MealItemRow'
 import { MealItemModal } from '../components/meal/MealItemModal'
 import { PublishModal } from '../components/meal/PublishModal'
+import { MonthlyMealCalendar, type CalendarDayLevel } from '../components/MonthlyMealCalendar'
+
+type CalendarView = 'calendar' | 'slider'
 
 const KO_DAYS = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -55,6 +58,7 @@ export function MealPlanPage() {
   const [showAddModal,   setShowAddModal]   = useState(false)
   const [showPublish,    setShowPublish]    = useState(false)
   const [saveMsg,        setSaveMsg]        = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [view,           setView]           = useState<CalendarView>('calendar')
 
   const queryClient = useQueryClient()
 
@@ -178,53 +182,92 @@ export function MealPlanPage() {
         </Alert>
       )}
 
-      {/* ── 날짜 탭 ──────────────────────────────────────── */}
-      <div
-        className="d-flex gap-1 mb-3 pb-1"
-        style={{ overflowX: 'auto', scrollbarWidth: 'none' }}
-      >
-        {days.map((date) => {
-          const ds         = formatDateStr(date)
-          const isSelected = ds === selectedDate
-          const hasPlan    = plans.some((p) => toDateStr(p.date) === ds)
-
-          return (
-            <button
-              key={ds}
-              onClick={() => selectDate(ds)}
-              style={{
-                padding: '4px 10px 8px',
-                border: `1.5px solid ${isSelected ? '#A8D8E8' : '#C0BBB4'}`,
-                background: isSelected ? '#CFECF3' : '#fff',
-                color: isSelected ? '#3A3030' : '#888',
-                fontFamily: 'IBM Plex Mono, monospace',
-                fontSize: 11,
-                borderRadius: 3,
-                flexShrink: 0,
-                cursor: 'pointer',
-                position: 'relative',
-              }}
-            >
-              {date.getDate()}({KO_DAYS[date.getDay()]})
-              {hasPlan && (
-                <span
-                  style={{
-                    position: 'absolute',
-                    bottom: 3,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    width: 4,
-                    height: 4,
-                    borderRadius: '50%',
-                    background: '#5DBD6A',
-                    display: 'block',
-                  }}
-                />
-              )}
-            </button>
-          )
-        })}
+      {/* ── 보기 전환 ────────────────────────────────────── */}
+      <div className="d-flex gap-1 mb-2" role="tablist" aria-label="식단 보기 전환">
+        {(['calendar', 'slider'] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setView(v)}
+            aria-pressed={view === v}
+            style={{
+              padding: '3px 12px',
+              border: '1.5px solid #A8D8E8',
+              background: view === v ? '#CFECF3' : '#fff',
+              color: '#3A3030',
+              fontSize: 11,
+              borderRadius: 3,
+              cursor: 'pointer',
+            }}
+          >
+            {v === 'calendar' ? '캘린더' : '슬라이더'}
+          </button>
+        ))}
       </div>
+
+      {/* ── 날짜 선택 영역 (캘린더 / 슬라이더) ─────────────── */}
+      {view === 'calendar' ? (
+        <div className="mb-3">
+          <MonthlyMealCalendar
+            month={month}
+            today={todayStr}
+            selectedDate={selectedDate}
+            onSelectDate={selectDate}
+            plans={plans}
+            getDayLevel={(plan): CalendarDayLevel => {
+              const hasConfirmedAlt = plan.alternatePlans.some((ap) => ap.status === 'confirmed')
+              return hasConfirmedAlt ? 'alt' : 'normal'
+            }}
+          />
+        </div>
+      ) : (
+        <div
+          className="d-flex gap-1 mb-3 pb-1"
+          style={{ overflowX: 'auto', scrollbarWidth: 'none' }}
+        >
+          {days.map((date) => {
+            const ds         = formatDateStr(date)
+            const isSelected = ds === selectedDate
+            const hasPlan    = plans.some((p) => toDateStr(p.date) === ds)
+
+            return (
+              <button
+                key={ds}
+                onClick={() => selectDate(ds)}
+                style={{
+                  padding: '4px 10px 8px',
+                  border: `1.5px solid ${isSelected ? '#A8D8E8' : '#C0BBB4'}`,
+                  background: isSelected ? '#CFECF3' : '#fff',
+                  color: isSelected ? '#3A3030' : '#888',
+                  fontFamily: 'IBM Plex Mono, monospace',
+                  fontSize: 11,
+                  borderRadius: 3,
+                  flexShrink: 0,
+                  cursor: 'pointer',
+                  position: 'relative',
+                }}
+              >
+                {date.getDate()}({KO_DAYS[date.getDay()]})
+                {hasPlan && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      bottom: 3,
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: 4,
+                      height: 4,
+                      borderRadius: '50%',
+                      background: '#5DBD6A',
+                      display: 'block',
+                    }}
+                  />
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {/* ── 메뉴 구성 ────────────────────────────────────── */}
       <div className="d-flex align-items-center gap-2 mb-2">
