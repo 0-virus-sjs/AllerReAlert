@@ -346,3 +346,23 @@ model SurveyResponse {
   @@unique([surveyId, userId])
   @@map("survey_responses")
 }
+
+// ── AI 식단 생성 비동기 Job ─────────────────────────────
+
+model MealGenerationJob {
+  id            String   @id @default(cuid())
+  orgId         String   @map("org_id")
+  requestedBy   String   @map("requested_by")
+  status        String   // queued | running | completed | failed
+  input         Json
+  result        Json?
+  error         String?
+  totalDays     Int?     @map("total_days")
+  completedDays Int      @default(0) @map("completed_days")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([orgId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@map("meal_generation_jobs")
+}
