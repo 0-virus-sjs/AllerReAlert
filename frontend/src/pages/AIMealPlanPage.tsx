@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Alert, Spinner } from 'react-bootstrap'
 import { useNavigate } from 'react-router-dom'
-import { generateMealPlan } from '../services/ai.api'
-import type { GenerateMealPlanInput, GeneratedPlanSummary } from '../services/ai.api'
+import { getMealPlanGenerationJob, startMealPlanGeneration } from '../services/ai.api'
+import type { GenerateMealPlanInput, GenerateMealPlanJob, GeneratedPlanSummary } from '../services/ai.api'
 
 // ── 날짜 포맷 헬퍼 ────────────────────────────────────────
 
@@ -16,10 +16,27 @@ function parseDateStr(str: string): Date {
 }
 
 const KO_DAYS = ['일', '월', '화', '수', '목', '금', '토']
+const JOB_POLL_INTERVAL_MS = 2_000
+const JOB_POLL_MAX_ATTEMPTS = 180
 
 function displayDate(dateStr: string): string {
   const d = parseDateStr(dateStr)
   return `${dateStr} (${KO_DAYS[d.getDay()]})`
+}
+
+function getApiErrorMessage(e: unknown): string {
+  const apiError = e as { response?: { data?: { message?: string; error?: { message?: string } } } }
+  return (
+    apiError.response?.data?.error?.message ??
+    apiError.response?.data?.message ??
+    (e instanceof Error ? e.message : 'AI 식단 생성 중 오류가 발생했습니다.')
+  )
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
 }
 
 // ── 기본 기간: 이번 달 1일 ~ 말일 ────────────────────────
@@ -54,6 +71,7 @@ export function AIMealPlanPage() {
   const [loading,   setLoading]   = useState(false)
   const [error,     setError]     = useState<string | null>(null)
   const [result,    setResult]    = useState<GeneratedPlanSummary[] | null>(null)
+  const [jobStatus, setJobStatus] = useState<GenerateMealPlanJob | null>(null)
 
   function buildInput(): GenerateMealPlanInput {
     const input: GenerateMealPlanInput = {
@@ -88,14 +106,50 @@ export function AIMealPlanPage() {
     }
     setError(null)
     setResult(null)
+    setJobStatus(null)
     setLoading(true)
     try {
-      const res = await generateMealPlan(buildInput())
-      setResult(res.mealPlans)
+      const input = buildInput()
+      console.info('[AI meal generation] request', input)
+
+      const started = await startMealPlanGeneration(input)
+      console.info('[AI meal generation] job started', started)
+
+      for (let attempt = 1; attempt <= JOB_POLL_MAX_ATTEMPTS; attempt += 1) {
+        await wait(JOB_POLL_INTERVAL_MS)
+
+        const job = await getMealPlanGenerationJob(started.jobId)
+        setJobStatus(job)
+        console.info('[AI meal generation] job status', {
+          attempt,
+          jobId: job.id,
+          status: job.status,
+          completedDays: job.completedDays,
+          totalDays: job.totalDays,
+          error: job.error,
+        })
+
+        if (job.status === 'completed') {
+          const mealPlans = job.result?.mealPlans ?? []
+          console.info('[AI meal generation] completed', {
+            jobId: job.id,
+            mealPlanCount: mealPlans.length,
+            mealPlans,
+          })
+          setResult(mealPlans)
+          return
+        }
+
+        if (job.status === 'failed') {
+          console.error('[AI meal generation] failed', job)
+          throw new Error(job.error ?? 'AI 식단 생성 job이 실패했습니다.')
+        }
+      }
+
+      throw new Error('AI 식단 생성 상태 확인 시간이 초과됐습니다.')
     } catch (e: unknown) {
-      const msg =
-        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (e instanceof Error ? e.message : 'AI 식단 생성 중 오류가 발생했습니다.')
+      console.error('[AI meal generation] request failed', e)
+      const msg = getApiErrorMessage(e)
       setError(msg)
     } finally {
       setLoading(false)
@@ -253,6 +307,15 @@ export function AIMealPlanPage() {
         </Alert>
       )}
 
+      {loading && jobStatus && (
+        <Alert variant="info" className="mb-3">
+          AI 식단 생성 상태: {jobStatus.status}
+          {jobStatus.totalDays !== null && (
+            <> · {jobStatus.completedDays}/{jobStatus.totalDays}일 처리</>
+          )}
+        </Alert>
+      )}
+
       {/* ── 생성 버튼 ── */}
       <button
         className="btn btn-primary w-100 py-2 fw-semibold mb-4"
@@ -262,7 +325,7 @@ export function AIMealPlanPage() {
         {loading ? (
           <>
             <Spinner animation="border" size="sm" className="me-2" />
-            AI가 식단을 생성 중입니다... (최대 30초)
+            AI가 식단을 생성 중입니다...
           </>
         ) : (
           '🤖 AI 식단 생성하기'
