@@ -37,26 +37,32 @@ async function main() {
   }
   console.log('✅ 알레르기 19종 시드 완료')
 
-  // ── 샘플 학교 3곳 ──────────────────────────────────
+  // ── 샘플 학교 3곳 (NEIS 실제 코드 반영) ───────────────
   const SCHOOLS = [
     {
       id: 'seed-org-001',
-      name: '알라리알라초등학교',
-      address: '서울특별시 강남구 테헤란로 1',
+      name: '판곡초등학교',
+      address: '경기도 남양주시',
+      atptCode: 'J10',
+      schoolCode: '7652136',
       gradeStructure: { grades: [1, 2, 3, 4, 5, 6], classesPerGrade: 4 },
       mealTime: { breakfast: null, lunch: '12:00', dinner: null },
     },
     {
       id: 'seed-org-002',
-      name: '알라리알라중학교',
-      address: '서울특별시 강남구 테헤란로 50',
+      name: '평내중학교',
+      address: '경기도 남양주시',
+      atptCode: 'J10',
+      schoolCode: '7652138',
       gradeStructure: { grades: [1, 2, 3], classesPerGrade: 6 },
       mealTime: { breakfast: null, lunch: '12:30', dinner: null },
     },
     {
       id: 'seed-org-003',
-      name: '알라리알라고등학교',
-      address: '서울특별시 강남구 테헤란로 100',
+      name: '평내고등학교',
+      address: '경기도 남양주시',
+      atptCode: 'J10',
+      schoolCode: '7530771',
       gradeStructure: { grades: [1, 2, 3], classesPerGrade: 8 },
       mealTime: { breakfast: '07:30', lunch: '13:00', dinner: '18:00' },
     },
@@ -66,12 +72,18 @@ async function main() {
     SCHOOLS.map((s) =>
       prisma.organization.upsert({
         where: { id: s.id },
-        update: {},
+        // 시드 재실행 시에도 이름·주소·NEIS 코드는 최신 값으로 유지
+        update: {
+          name: s.name,
+          address: s.address,
+          atptCode: s.atptCode,
+          schoolCode: s.schoolCode,
+        },
         create: { ...s, orgType: 'school' },
       }),
     ),
   )
-  const org = orgs[0] // 기본 사용자 시드는 첫 번째 학교(초등)에 연결
+  const org = orgs[0] // 기본 사용자 시드는 첫 번째 학교(판곡초)에 연결
   console.log(`✅ 샘플 학교 ${orgs.length}곳 시드 완료:`, orgs.map((o) => o.name).join(', '))
 
   // ── 테스트 계정 5종 ────────────────────────────────

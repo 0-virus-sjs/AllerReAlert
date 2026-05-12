@@ -46,6 +46,9 @@ model Organization {
   orgType        OrgType  @map("org_type")
   gradeStructure Json?    @map("grade_structure")
   mealTime       Json?    @map("meal_time")
+  // NEIS 급식 API 연동용 — orgType=school일 때만 의미. 그 외엔 null.
+  atptCode       String?  @map("atpt_code")     // 시도교육청 코드 (예: J10 경기)
+  schoolCode     String?  @map("school_code")   // NEIS 표준 학교 코드
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
