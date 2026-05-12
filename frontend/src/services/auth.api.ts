@@ -21,6 +21,9 @@ export interface SignupPayload {
   password: string
   phone?: string
   groupInfo?: Record<string, unknown>
+  grade?: number
+  classNo?: string
+  studentCode?: string
   privacyAgreed: boolean
   guardianConsentRequired: boolean
 }
