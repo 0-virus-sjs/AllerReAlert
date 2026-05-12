@@ -2,6 +2,7 @@ import { prisma } from '../../lib/prisma'
 import { decrypt } from '../../lib/crypto'
 import { AppError } from '../../middlewares/errorHandler'
 import { dispatch } from '../notification/dispatcher'
+import { invalidateOrgAnalyticsCache } from '../../lib/cache'
 
 const ALLERGEN_INCLUDE = {
   allergen: { select: { id: true, code: true, name: true, iconUrl: true } },
@@ -109,6 +110,15 @@ export async function approveAllergen(
     },
     select: { id: true, status: true, rejectionReason: true },
   })
+
+  // 승인 시 confirmed 상태가 새로 생기므로 analytics 분포 무효화
+  if (action === 'confirmed') {
+    const student = await prisma.user.findUnique({
+      where: { id: allergen.userId },
+      select: { orgId: true },
+    })
+    if (student?.orgId) invalidateOrgAnalyticsCache(student.orgId)
+  }
 
   // 반려 시 자녀에게 결과 알림
   if (action === 'rejected') {

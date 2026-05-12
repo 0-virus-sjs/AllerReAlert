@@ -2,6 +2,7 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { AppError } from '../middlewares/errorHandler'
 import { verifyTempToken } from '../lib/jwt'
+import { invalidateOrgAnalyticsCache } from '../lib/cache'
 
 const userSelect = {
   id: true,
@@ -56,8 +57,11 @@ export async function updateMe(userId: string, input: UpdateMeInput) {
       : undefined
 
   const isStudent = user.role === 'student'
+  const studentFieldChanged = isStudent && (
+    input.grade !== undefined || input.classNo !== undefined || input.studentCode !== undefined
+  )
 
-  return prisma.user.update({
+  const updated = await prisma.user.update({
     where: { id: userId },
     data: {
       ...(input.name !== undefined && { name: input.name }),
@@ -69,6 +73,10 @@ export async function updateMe(userId: string, input: UpdateMeInput) {
     },
     select: userSelect,
   })
+
+  // 학생의 grade/classNo/studentCode가 바뀌면 school-stats 분포가 영향받음
+  if (studentFieldChanged) invalidateOrgAnalyticsCache(user.orgId)
+  return updated
 }
 
 // ── T-124: 소속 단체 변경 ─────────────────────────────────
@@ -131,6 +139,10 @@ export async function changeOrg(userId: string, tempToken: string, ip?: string) 
     })
     return u
   })
+
+  // 양쪽 org의 analytics 캐시 무효화 (이전 org는 인원 감소, 새 org는 증가)
+  invalidateOrgAnalyticsCache(user.orgId)
+  invalidateOrgAnalyticsCache(newOrgId)
 
   return {
     user: updated,

@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
-import { cache, CacheKey, invalidateMealCache } from '../../lib/cache'
+import { cache, CacheKey, invalidateMealCache, invalidateOrgAnalyticsCache } from '../../lib/cache'
 import { applyAutoTagging } from './tagging.service'
 import { onPublishedMealChanged } from './change-hook'
 import { AppError } from '../../middlewares/errorHandler'
@@ -26,7 +26,7 @@ export async function createMealPlan(input: CreateMealInput) {
   const [y, m, d] = input.date.split('-').map(Number)
   const date = new Date(Date.UTC(y, m - 1, d))
 
-  return prisma.$transaction(async (tx) => {
+  const plan = await prisma.$transaction(async (tx) => {
     const plan = await tx.mealPlan.create({
       data: {
         orgId: input.orgId,
@@ -68,13 +68,17 @@ export async function createMealPlan(input: CreateMealInput) {
       },
     })
   })
+
+  // 단건 생성 후에도 즉시 GET /meals·analytics 캐시에 반영되도록 무효화
+  invalidateMealCache(input.orgId)
+  invalidateOrgAnalyticsCache(input.orgId)
+  return plan
 }
 
 // 월간 일괄 생성 — 각 날짜별로 독립 트랜잭션
 export async function createBulkMealPlans(inputs: CreateMealInput[]) {
   const plans = await Promise.all(inputs.map(createMealPlan))
-  // 생성 후 해당 org 캐시 무효화
-  if (plans.length > 0) invalidateMealCache(inputs[0].orgId)
+  // createMealPlan 안에서 무효화하므로 별도 호출 불필요
   return plans
 }
 
@@ -220,6 +224,7 @@ export async function updateMealPlan(
   // 캐시 무효화
   cache.del(CacheKey.mealDetail(id))
   invalidateMealCache(orgId)
+  invalidateOrgAnalyticsCache(orgId)
 
   return updated
 }
@@ -258,6 +263,7 @@ export async function publishMealPlan(
   })
   cache.del(CacheKey.mealDetail(id))
   invalidateMealCache(orgId)
+  invalidateOrgAnalyticsCache(orgId)
   return published
 }
 
@@ -307,4 +313,5 @@ export async function deleteMealPlan(id: string, userId: string, orgId: string) 
 
   cache.del(CacheKey.mealDetail(id))
   invalidateMealCache(orgId)
+  invalidateOrgAnalyticsCache(orgId)
 }
