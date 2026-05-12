@@ -124,8 +124,29 @@ model Allergen {
   userAllergens       UserAllergen[]
   mealItemAllergens   MealItemAllergen[]
   alternateMealPlans  AlternateMealPlan[]
+  keywords            AllergenKeyword[]
 
   @@map("allergens")
+}
+
+// 알레르기 키워드 사전 (자동 태깅 보강용)
+// 출처:
+//   - 'neis'   : NEIS 메뉴 이력에서 자동 추출
+//   - 'manual' : 영양사/관리자 수동 추가
+model AllergenKeyword {
+  id          String   @id @default(cuid())
+  allergenId  String   @map("allergen_id")
+  keyword     String
+  source      String   // 'neis' | 'manual'
+  sampleCount Int      @default(1) @map("sample_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  allergen Allergen @relation(fields: [allergenId], references: [id], onDelete: Cascade)
+
+  @@unique([allergenId, keyword])
+  @@index([source])
+  @@map("allergen_keywords")
 }
 
 model UserAllergen {

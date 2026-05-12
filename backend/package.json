@@ -11,6 +11,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "ts-node prisma/seed.ts",
     "db:studio": "prisma studio",
+    "extract-allergen-keywords": "ts-node scripts/extract-allergen-keywords.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
