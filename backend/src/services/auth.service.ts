@@ -26,19 +26,29 @@ export interface SignupInput {
   password: string
   phone?: string
   groupInfo?: Record<string, unknown>
+  grade?: number
+  classNo?: string
+  studentCode?: string
   privacyAgreed: boolean
   guardianConsentRequired: boolean
 }
 
 export async function signup(input: SignupInput) {
-  // 임시 토큰으로 orgId 확인
+  // 임시 토큰으로 orgId·orgType 확인
   let orgId: string
+  let orgType: string
   try {
     const payload = verifyTempToken(input.tempToken)
     if (payload.purpose !== 'signup') throw new Error()
     orgId = payload.orgId
+    orgType = payload.orgType
   } catch {
     throw new AppError(401, 'INVALID_TEMP_TOKEN', '소속 인증 토큰이 유효하지 않습니다. 소속 코드 인증을 다시 진행하세요')
+  }
+
+  // student 역할은 school 단체에서만 가입 가능 (T-122)
+  if (input.role === 'student' && orgType !== 'school') {
+    throw new AppError(400, 'INVALID_ROLE_FOR_ORG', '학생 역할은 학교 단체에서만 가입할 수 있습니다')
   }
 
   if (!input.privacyAgreed) {
@@ -51,7 +61,8 @@ export async function signup(input: SignupInput) {
   }
 
   const passwordHash = await bcrypt.hash(input.password, 12)
-  const linkCode = input.role === 'student' ? await generateUniqueLinkCode() : undefined
+  const isStudent = input.role === 'student'
+  const linkCode = isStudent ? await generateUniqueLinkCode() : undefined
 
   const user = await prisma.user.create({
     data: {
@@ -61,6 +72,10 @@ export async function signup(input: SignupInput) {
       email: input.email,
       phone: input.phone,
       groupInfo: (input.groupInfo ?? {}) as Prisma.InputJsonValue,
+      // T-122: student 역할일 때만 학년/반/학번 매핑
+      grade: isStudent ? input.grade : null,
+      classNo: isStudent ? input.classNo : null,
+      studentCode: isStudent ? input.studentCode : null,
       linkCode,
       passwordHash,
       consentedAt: new Date(),
