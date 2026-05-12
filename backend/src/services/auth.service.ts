@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt'
 import crypto from 'crypto'
-import type { Prisma, UserRole } from '@prisma/client'
+import type { Prisma, UserRole, Gender } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { signAccessToken, signRefreshToken, signTempToken, verifyRefreshToken, verifyTempToken } from '../lib/jwt'
 import { AppError } from '../middlewares/errorHandler'
@@ -29,6 +29,7 @@ export interface SignupInput {
   grade?: number
   classNo?: string
   studentCode?: string
+  gender?: Gender
   privacyAgreed: boolean
   guardianConsentRequired: boolean
 }
@@ -76,6 +77,8 @@ export async function signup(input: SignupInput) {
       grade: isStudent ? input.grade : null,
       classNo: isStudent ? input.classNo : null,
       studentCode: isStudent ? input.studentCode : null,
+      // T-126: student 역할일 때만 gender 매핑
+      gender: isStudent ? input.gender : null,
       linkCode,
       passwordHash,
       consentedAt: new Date(),

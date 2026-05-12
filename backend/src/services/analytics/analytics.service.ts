@@ -7,6 +7,7 @@ const CacheKey = {
   allergyOverview: (orgId: string) => `analytics:overview:${orgId}`,
   dailyDemand:     (orgId: string, month: string) => `analytics:demand:${orgId}:${month}`,
   monthlyReport:   (orgId: string, month: string) => `analytics:report:${orgId}:${month}`,
+  schoolStats:     (orgId: string) => `analytics:school-stats:${orgId}`,
 }
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
@@ -30,6 +31,16 @@ export interface MonthlyReport {
   alternateMealCount: number
   surveyParticipationRate: number   // 0~1
   surveyCount: number
+}
+
+export interface SchoolStats {
+  totalStudents: number
+  gender: {
+    male: number
+    female: number
+    unknown: number   // gender 미입력 학생 (기존 데이터 호환)
+  }
+  grade: Record<number, number>   // { 1: 32, 2: 28, ... } — 0건인 학년은 제외
 }
 
 // ── T-080: 알레르기 유형별 분포 ─────────────────────────────────────────────
@@ -248,4 +259,38 @@ export async function getMonthlyReport(orgId: string, month: string): Promise<Mo
 
   cache.set(key, report, 300)
   return report
+}
+
+// ── T-126: 학교 통계 — 성별·학년별 인원 분포 ─────────────────────────────────
+// 영양사 권한, 본인 소속 학교 한정. 30분 캐시.
+
+export async function getSchoolStats(orgId: string): Promise<SchoolStats> {
+  const key = CacheKey.schoolStats(orgId)
+  const cached = cache.get<SchoolStats>(key)
+  if (cached) return cached
+
+  // 학생만 (활성 계정), 학교 한정
+  const students = await prisma.user.findMany({
+    where: { orgId, role: 'student', isActive: true },
+    select: { gender: true, grade: true },
+  })
+
+  const stats: SchoolStats = {
+    totalStudents: students.length,
+    gender: { male: 0, female: 0, unknown: 0 },
+    grade: {},
+  }
+
+  for (const s of students) {
+    if (s.gender === 'male')        stats.gender.male++
+    else if (s.gender === 'female') stats.gender.female++
+    else                            stats.gender.unknown++
+
+    if (s.grade != null) {
+      stats.grade[s.grade] = (stats.grade[s.grade] ?? 0) + 1
+    }
+  }
+
+  cache.set(key, stats, 1800)   // 30분
+  return stats
 }

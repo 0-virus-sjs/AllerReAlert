@@ -6,6 +6,7 @@ import {
   dailyDemandHandler,
   monthlyReportHandler,
   analyticsExportHandler,
+  schoolStatsHandler,
 } from '../controllers/analytics.controller'
 
 const router = Router()
@@ -24,5 +25,8 @@ router.get('/report', monthlyReportHandler)
 
 // T-083: CSV / PDF 내보내기
 router.get('/export', analyticsExportHandler)
+
+// T-126: 학교 통계 (성별·학년별 인원 분포)
+router.get('/school-stats', schoolStatsHandler)
 
 export default router

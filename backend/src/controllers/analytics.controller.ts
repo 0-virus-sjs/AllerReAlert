@@ -5,6 +5,7 @@ import {
   getAllergyOverview,
   getDailyDemand,
   getMonthlyReport,
+  getSchoolStats,
 } from '../services/analytics/analytics.service'
 import { generateAnalyticsCsv, generateAnalyticsPdf } from '../services/analytics/export.service'
 
@@ -57,6 +58,18 @@ export async function monthlyReportHandler(req: Request, res: Response, next: Ne
     const month = rawMonth ?? currentMonth()
     const { orgId } = req.user!
     const data = await getMonthlyReport(orgId, month)
+    return sendSuccess(res, data)
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ── T-126: GET /analytics/school-stats ───────────────────────────────────────
+
+export async function schoolStatsHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { orgId } = req.user!
+    const data = await getSchoolStats(orgId)
     return sendSuccess(res, data)
   } catch (err) {
     next(err)
