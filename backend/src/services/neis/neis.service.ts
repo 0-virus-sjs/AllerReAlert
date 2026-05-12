@@ -1,7 +1,8 @@
 import NodeCache from 'node-cache'
 import { logger } from '../../lib/logger'
 
-const NEIS_BASE = 'https://open.neis.go.kr/hub/mealServiceDietInfo'
+const NEIS_BASE        = 'https://open.neis.go.kr/hub/mealServiceDietInfo'
+const SCHOOL_INFO_BASE = 'https://open.neis.go.kr/hub/schoolInfo'
 const CACHE_TTL = 60 * 60 * 24  // 1일
 
 const cache = new NodeCache({ stdTTL: CACHE_TTL, checkperiod: 600 })
@@ -146,6 +147,157 @@ export async function getNeisHistory(
 
   logger.info({ dayCount: meals.length }, '[T-059] NEIS 급식 이력 조회 완료')
   return result
+}
+
+// ── NEIS schoolInfo API (학교 목록) ─────────────────────────
+
+export interface NeisSchool {
+  atptCode: string
+  schoolCode: string
+  name: string
+  kind: string   // 초등학교 / 중학교 / 고등학교 / 기타
+}
+
+interface NeisSchoolRow {
+  ATPT_OFCDC_SC_CODE: string
+  ATPT_OFCDC_SC_NM?: string
+  SD_SCHUL_CODE: string
+  SCHUL_NM: string
+  SCHUL_KND_SC_NM?: string
+  ORG_RDNMA?: string   // 도로명 주소
+}
+
+interface NeisSchoolInfoResponse {
+  schoolInfo?: [
+    { head: [{ list_total_count: number }, { RESULT: { CODE: string; MESSAGE: string } }] },
+    { row: NeisSchoolRow[] },
+  ]
+  RESULT?: { CODE: string; MESSAGE: string }
+}
+
+/**
+ * 단일 시도교육청에 속한 학교 목록을 NEIS schoolInfo로 조회 (1일 캐시).
+ * 알레르기 키워드 사전 광역 추출용.
+ */
+export async function getSchoolsByAtpt(atptCode: string): Promise<NeisSchool[]> {
+  const key = `neis-schools:${atptCode}`
+  const cached = cache.get<NeisSchool[]>(key)
+  if (cached) {
+    logger.debug({ key }, '[NEIS-학교목록] 캐시 히트')
+    return cached
+  }
+
+  const apiKey = process.env.NEIS_API_KEY
+  if (!apiKey) {
+    logger.warn('[NEIS-학교목록] NEIS_API_KEY 미설정')
+    return []
+  }
+
+  const PAGE_SIZE = 1000
+  const schools: NeisSchool[] = []
+  let pageIndex = 1
+
+  while (true) {
+    const url = new URL(SCHOOL_INFO_BASE)
+    url.searchParams.set('KEY',                apiKey)
+    url.searchParams.set('Type',               'json')
+    url.searchParams.set('pIndex',             String(pageIndex))
+    url.searchParams.set('pSize',              String(PAGE_SIZE))
+    url.searchParams.set('ATPT_OFCDC_SC_CODE', atptCode)
+
+    logger.info({ atptCode, pageIndex }, '[NEIS-학교목록] API 호출')
+    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(30_000) })
+    if (!res.ok) throw new Error(`NEIS schoolInfo HTTP ${res.status}`)
+
+    const json = (await res.json()) as NeisSchoolInfoResponse
+    if (json.RESULT) {
+      logger.info({ code: json.RESULT.CODE, pageIndex }, '[NEIS-학교목록] 종료 신호')
+      break
+    }
+
+    const rows = json.schoolInfo?.[1]?.row ?? []
+    for (const r of rows) {
+      schools.push({
+        atptCode:   r.ATPT_OFCDC_SC_CODE,
+        schoolCode: r.SD_SCHUL_CODE,
+        name:       r.SCHUL_NM,
+        kind:       r.SCHUL_KND_SC_NM ?? '',
+      })
+    }
+
+    if (rows.length < PAGE_SIZE) break
+    pageIndex += 1
+  }
+
+  cache.set(key, schools)
+  logger.info({ atptCode, count: schools.length }, '[NEIS-학교목록] 조회 완료')
+  return schools
+}
+
+// ── T-127: 학교명 검색 (자동완성용) ────────────────────────
+
+export interface NeisSchoolSearchResult {
+  atptCode:   string
+  atptName:   string
+  schoolCode: string
+  name:       string
+  address:    string | null
+  kind:       string
+}
+
+/**
+ * T-127: NEIS schoolInfo로 학교명(부분 일치) 검색. 30분 캐시.
+ * 클라이언트 자동완성용. 결과 ≤ limit건.
+ */
+export async function searchSchools(query: string, limit = 50): Promise<NeisSchoolSearchResult[]> {
+  const q = query.trim()
+  if (!q) return []
+
+  const key = `neis-school-search:${q}:${limit}`
+  const cached = cache.get<NeisSchoolSearchResult[]>(key)
+  if (cached) {
+    logger.debug({ key }, '[NEIS-학교검색] 캐시 히트')
+    return cached
+  }
+
+  const apiKey = process.env.NEIS_API_KEY
+  if (!apiKey) {
+    logger.warn('[NEIS-학교검색] NEIS_API_KEY 미설정')
+    return []
+  }
+
+  const url = new URL(SCHOOL_INFO_BASE)
+  url.searchParams.set('KEY',      apiKey)
+  url.searchParams.set('Type',     'json')
+  url.searchParams.set('pIndex',   '1')
+  url.searchParams.set('pSize',    String(limit))
+  url.searchParams.set('SCHUL_NM', q)
+
+  logger.info({ q, limit }, '[NEIS-학교검색] API 호출')
+  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10_000) })
+  if (!res.ok) throw new Error(`NEIS schoolInfo HTTP ${res.status}`)
+
+  const json = (await res.json()) as NeisSchoolInfoResponse
+  if (json.RESULT) {
+    // INFO-200 (데이터 없음) 등 → 빈 결과 캐시
+    cache.set(key, [], 1800)
+    logger.info({ q, code: json.RESULT.CODE }, '[NEIS-학교검색] 결과 없음')
+    return []
+  }
+
+  const rows = json.schoolInfo?.[1]?.row ?? []
+  const results: NeisSchoolSearchResult[] = rows.map((r) => ({
+    atptCode:   r.ATPT_OFCDC_SC_CODE,
+    atptName:   r.ATPT_OFCDC_SC_NM ?? '',
+    schoolCode: r.SD_SCHUL_CODE,
+    name:       r.SCHUL_NM,
+    address:    r.ORG_RDNMA ?? null,
+    kind:       r.SCHUL_KND_SC_NM ?? '',
+  }))
+
+  cache.set(key, results, 1800)   // 30분
+  logger.info({ q, count: results.length }, '[NEIS-학교검색] 조회 완료')
+  return results
 }
 
 /**

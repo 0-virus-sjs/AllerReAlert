@@ -31,6 +31,11 @@ enum UserRole {
   admin
 }
 
+enum Gender {
+  male
+  female
+}
+
 enum UserAllergenStatus {
   pending
   confirmed
@@ -46,11 +51,15 @@ model Organization {
   orgType        OrgType  @map("org_type")
   gradeStructure Json?    @map("grade_structure")
   mealTime       Json?    @map("meal_time")
+  // NEIS 급식 API 연동용 — orgType=school일 때만 의미. 그 외엔 null.
+  atptCode       String?  @map("atpt_code")     // 시도교육청 코드 (예: J10 경기)
+  schoolCode     String?  @map("school_code")   // NEIS 표준 학교 코드
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  users     User[]
-  mealPlans MealPlan[]
+  users        User[]
+  mealPlans    MealPlan[]
+  priceCatalog MealPriceCatalog[]
 
   @@map("organizations")
 }
@@ -63,6 +72,10 @@ model User {
   email        String   @unique
   phone        String?
   groupInfo    Json?    @map("group_info")
+  grade        Int?                                 // T-121 학생 학년 (1~12)
+  classNo      String?  @map("class_no")            // T-121 학생 반 (문자 허용)
+  studentCode  String?  @map("student_code")        // T-121 학생 학번
+  gender       Gender?                              // T-126 성별 (학생 시 필수, 외 role은 null)
   linkCode                 String?   @unique @map("link_code")  // 학생 전용 연동코드 (보호자가 사용)
   passwordHash             String    @map("password_hash")
   refreshTokenHash         String?   @map("refresh_token_hash")
@@ -86,6 +99,7 @@ model User {
   studentLinks            GuardianStudent[]   @relation("StudentLinks")
 
   @@index([orgId, role])
+  @@index([orgId, grade, classNo])
   @@map("users")
 }
 
@@ -117,8 +131,51 @@ model Allergen {
   userAllergens       UserAllergen[]
   mealItemAllergens   MealItemAllergen[]
   alternateMealPlans  AlternateMealPlan[]
+  keywords            AllergenKeyword[]
 
   @@map("allergens")
+}
+
+// T-128: 학교별 메뉴 참고 단가 카탈로그
+//   - keyword: 메뉴명 핵심 키워드 (예: '돈가스', '잡곡밥')
+//   - category: rice / soup / side / dessert
+//   - avgPrice: 1식당 참고 단가(원). 정적 단가표 또는 NEIS 응답 단가가 출처
+//   - sampleCount: 이 학교 NEIS 메뉴 이력에서 등장한 횟수
+model MealPriceCatalog {
+  id          String           @id @default(cuid())
+  orgId       String           @map("org_id")
+  keyword     String
+  category    MealItemCategory
+  avgPrice    Int              @map("avg_price")
+  sampleCount Int              @default(0) @map("sample_count")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, keyword])
+  @@index([orgId, category])
+  @@map("meal_price_catalog")
+}
+
+// 알레르기 키워드 사전 (자동 태깅 보강용)
+// 출처:
+//   - 'neis'   : NEIS 메뉴 이력에서 자동 추출
+//   - 'manual' : 영양사/관리자 수동 추가
+model AllergenKeyword {
+  id          String   @id @default(cuid())
+  allergenId  String   @map("allergen_id")
+  keyword     String
+  source      String   // 'neis' | 'manual'
+  sampleCount Int      @default(1) @map("sample_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  allergen Allergen @relation(fields: [allergenId], references: [id], onDelete: Cascade)
+
+  @@unique([allergenId, keyword])
+  @@index([source])
+  @@map("allergen_keywords")
 }
 
 model UserAllergen {

@@ -56,6 +56,7 @@ function App() {
                 {/* 관리자 전용 */}
                 <Route element={<ProtectedRoute roles={['admin']} />}>
                   <Route path="/admin" element={<AdminPanelPage />} />
+                  <Route path="/admin/:tab" element={<AdminPanelPage />} />
                 </Route>
               </Route>
             </Route>

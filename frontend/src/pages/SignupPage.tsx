@@ -8,12 +8,16 @@ import { authApi, type VerifyOrgResponse } from '../services/auth.api'
 import type { UserRole } from '../types/auth'
 
 // ── 역할 정의 ──────────────────────────────────────────
-const ROLES: { key: UserRole; label: string; desc: string }[] = [
+// student는 학교 단체 전용 — 다른 단체(company/welfare/military/other)에서는 노출하지 않음
+const ALL_ROLES: { key: UserRole; label: string; desc: string }[] = [
   { key: 'student',      label: '학생',   desc: '급식 알레르기 알림 수신' },
   { key: 'staff',        label: '교직원', desc: '급식 조회 및 설문 참여' },
   { key: 'guardian',     label: '보호자', desc: '자녀 알레르기 승인 관리' },
   { key: 'nutritionist', label: '영양사', desc: '식단 작성 및 AI 보조' },
 ]
+function rolesForOrgType(orgType: string) {
+  return orgType === 'school' ? ALL_ROLES : ALL_ROLES.filter(r => r.key !== 'student')
+}
 
 // ── 비밀번호 정책 ────────────────────────────────────────
 function validatePassword(pw: string): string | null {
@@ -83,7 +87,8 @@ interface Step2Props {
 function StepRegister({ org, onBack }: Step2Props) {
   const navigate = useNavigate()
 
-  const [role, setRole] = useState<UserRole>('student')
+  const availableRoles = rolesForOrgType(org.orgType)
+  const [role, setRole] = useState<UserRole>(availableRoles[0].key)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -91,7 +96,9 @@ function StepRegister({ org, onBack }: Step2Props) {
   const [phone, setPhone] = useState('')
   // 역할별 추가 필드
   const [grade, setGrade] = useState('')
-  const [classNum, setClassNum] = useState('')
+  const [classNo, setClassNo] = useState('')
+  const [studentCode, setStudentCode] = useState('')
+  const [gender, setGender] = useState<'' | 'male' | 'female'>('')
   const [certCode, setCertCode] = useState('')
   // 동의
   const [privacyAgreed, setPrivacyAgreed] = useState(false)
@@ -102,7 +109,6 @@ function StepRegister({ org, onBack }: Step2Props) {
   const [error, setError] = useState<string | null>(null)
 
   function buildGroupInfo(): Record<string, unknown> {
-    if (role === 'student') return { grade: Number(grade), classNum: Number(classNum) }
     if (role === 'nutritionist') return { certCode }
     return {}
   }
@@ -118,6 +124,12 @@ function StepRegister({ org, onBack }: Step2Props) {
     const pwErr = validatePassword(password)
     if (pwErr) { setError(pwErr); return }
     if (password !== confirmPw) { setError('비밀번호가 일치하지 않습니다'); return }
+    if (role === 'student') {
+      if (!grade) { setError('학년을 선택하세요'); return }
+      if (!classNo) { setError('반을 선택하세요'); return }
+      if (!studentCode.trim()) { setError('학번을 입력하세요'); return }
+      if (!gender) { setError('성별을 선택하세요'); return }
+    }
     if (!privacyAgreed) { setError('개인정보 수집·이용에 동의해야 합니다'); return }
     if (isUnder14 && !guardianAgreed) { setError('14세 미만은 법정대리인 동의가 필요합니다'); return }
 
@@ -131,6 +143,12 @@ function StepRegister({ org, onBack }: Step2Props) {
         password,
         phone: phone.trim() || undefined,
         groupInfo: buildGroupInfo(),
+        ...(role === 'student' && {
+          grade: Number(grade),
+          classNo,
+          studentCode: studentCode.trim(),
+          gender: gender as 'male' | 'female',
+        }),
         privacyAgreed: true,
         guardianConsentRequired: isUnder14,
       })
@@ -162,7 +180,7 @@ function StepRegister({ org, onBack }: Step2Props) {
       <Form.Group className="mb-3">
         <Form.Label className="small fw-semibold">역할 선택</Form.Label>
         <Row className="g-2">
-          {ROLES.map(({ key, label, desc }) => (
+          {availableRoles.map(({ key, label, desc }) => (
             <Col xs={6} key={key}>
               <div
                 className={`border rounded p-2 text-center small cursor-pointer ${
@@ -213,22 +231,49 @@ function StepRegister({ org, onBack }: Step2Props) {
 
       {/* 역할별 추가 필드 */}
       {role === 'student' && (
-        <Row className="g-2 mb-3">
-          <Col>
-            <Form.Label className="small fw-semibold">학년</Form.Label>
-            <Form.Select size="sm" value={grade} onChange={(e) => setGrade(e.target.value)} disabled={loading}>
-              <option value="">선택</option>
-              {[1,2,3,4,5,6].map(n => <option key={n} value={n}>{n}학년</option>)}
-            </Form.Select>
-          </Col>
-          <Col>
-            <Form.Label className="small fw-semibold">반</Form.Label>
-            <Form.Select size="sm" value={classNum} onChange={(e) => setClassNum(e.target.value)} disabled={loading}>
-              <option value="">선택</option>
-              {[1,2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}반</option>)}
-            </Form.Select>
-          </Col>
-        </Row>
+        <>
+          <Row className="g-2 mb-2">
+            <Col>
+              <Form.Label className="small fw-semibold">학년</Form.Label>
+              <Form.Select size="sm" value={grade} onChange={(e) => setGrade(e.target.value)} disabled={loading}>
+                <option value="">선택</option>
+                {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n}>{n}학년</option>)}
+              </Form.Select>
+            </Col>
+            <Col>
+              <Form.Label className="small fw-semibold">반</Form.Label>
+              <Form.Select size="sm" value={classNo} onChange={(e) => setClassNo(e.target.value)} disabled={loading}>
+                <option value="">선택</option>
+                {[1,2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={String(n)}>{n}반</option>)}
+              </Form.Select>
+            </Col>
+          </Row>
+          <Row className="g-2 mb-3">
+            <Col xs={7}>
+              <Form.Label className="small fw-semibold">학번</Form.Label>
+              <Form.Control
+                size="sm"
+                placeholder="예: 20250123"
+                value={studentCode}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setStudentCode(e.target.value)}
+                disabled={loading}
+              />
+            </Col>
+            <Col xs={5}>
+              <Form.Label className="small fw-semibold">성별</Form.Label>
+              <Form.Select
+                size="sm"
+                value={gender}
+                onChange={(e) => setGender(e.target.value as '' | 'male' | 'female')}
+                disabled={loading}
+              >
+                <option value="">선택</option>
+                <option value="male">남</option>
+                <option value="female">여</option>
+              </Form.Select>
+            </Col>
+          </Row>
+        </>
       )}
 
       {role === 'nutritionist' && (

@@ -36,7 +36,7 @@ const NAV_ITEMS: Record<UserRole, NavItem[]> = {
   ],
   admin: [
     { to: '/admin/users',     label: '사용자 관리',     icon: '👥' },
-    { to: '/admin/schools',   label: '학교 관리',       icon: '🏫' },
+    { to: '/admin/orgs',      label: '학교 관리',       icon: '🏫' },
     { to: '/admin/allergens', label: '알레르기 마스터',  icon: '⚠️' },
     { to: '/admin/logs',      label: '시스템 로그',      icon: '📜' },
   ],

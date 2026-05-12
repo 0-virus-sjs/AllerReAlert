@@ -37,20 +37,54 @@ async function main() {
   }
   console.log('✅ 알레르기 19종 시드 완료')
 
-  // ── 샘플 학교 1곳 ──────────────────────────────────
-  const org = await prisma.organization.upsert({
-    where: { id: 'seed-org-001' },
-    update: {},
-    create: {
+  // ── 샘플 학교 3곳 (NEIS 실제 코드 반영) ───────────────
+  const SCHOOLS = [
+    {
       id: 'seed-org-001',
-      name: '알라리알라초등학교',
-      address: '서울특별시 강남구 테헤란로 1',
-      orgType: 'school',
+      name: '판곡초등학교',
+      address: '경기도 남양주시',
+      atptCode: 'J10',
+      schoolCode: '7652136',
       gradeStructure: { grades: [1, 2, 3, 4, 5, 6], classesPerGrade: 4 },
       mealTime: { breakfast: null, lunch: '12:00', dinner: null },
     },
-  })
-  console.log('✅ 샘플 학교 시드 완료:', org.name)
+    {
+      id: 'seed-org-002',
+      name: '평내중학교',
+      address: '경기도 남양주시',
+      atptCode: 'J10',
+      schoolCode: '7652138',
+      gradeStructure: { grades: [1, 2, 3], classesPerGrade: 6 },
+      mealTime: { breakfast: null, lunch: '12:30', dinner: null },
+    },
+    {
+      id: 'seed-org-003',
+      name: '평내고등학교',
+      address: '경기도 남양주시',
+      atptCode: 'J10',
+      schoolCode: '7530771',
+      gradeStructure: { grades: [1, 2, 3], classesPerGrade: 8 },
+      mealTime: { breakfast: '07:30', lunch: '13:00', dinner: '18:00' },
+    },
+  ]
+
+  const orgs = await Promise.all(
+    SCHOOLS.map((s) =>
+      prisma.organization.upsert({
+        where: { id: s.id },
+        // 시드 재실행 시에도 이름·주소·NEIS 코드는 최신 값으로 유지
+        update: {
+          name: s.name,
+          address: s.address,
+          atptCode: s.atptCode,
+          schoolCode: s.schoolCode,
+        },
+        create: { ...s, orgType: 'school' },
+      }),
+    ),
+  )
+  const org = orgs[0] // 기본 사용자 시드는 첫 번째 학교(판곡초)에 연결
+  console.log(`✅ 샘플 학교 ${orgs.length}곳 시드 완료:`, orgs.map((o) => o.name).join(', '))
 
   // ── 테스트 계정 5종 ────────────────────────────────
   const hash = (pw: string) => bcrypt.hash(pw, 12)
@@ -59,7 +93,11 @@ async function main() {
     { id: 'seed-user-admin', role: 'admin' as const,        email: 'admin@allerrealert.kr',       name: '시스템관리자' },
     { id: 'seed-user-nutr',  role: 'nutritionist' as const, email: 'nutritionist@allerrealert.kr',name: '김영양사' },
     { id: 'seed-user-staff', role: 'staff' as const,        email: 'staff@allerrealert.kr',       name: '이교직원' },
-    { id: 'seed-user-stu',   role: 'student' as const,      email: 'student@allerrealert.kr',     name: '박학생' },
+    {
+      id: 'seed-user-stu', role: 'student' as const,
+      email: 'student@allerrealert.kr', name: '박학생',
+      grade: 5, classNo: '3', studentCode: '20250513', gender: 'male' as const,
+    },
     { id: 'seed-user-grd',   role: 'guardian' as const,     email: 'guardian@allerrealert.kr',    name: '최보호자' },
   ]
 
@@ -74,6 +112,10 @@ async function main() {
         name: a.name,
         email: a.email,
         passwordHash: await hash('Test1234!'),
+        ...('grade' in a && { grade: a.grade }),
+        ...('classNo' in a && { classNo: a.classNo }),
+        ...('studentCode' in a && { studentCode: a.studentCode }),
+        ...('gender' in a && { gender: a.gender }),
       },
     })
   }
