@@ -98,6 +98,7 @@ function StepRegister({ org, onBack }: Step2Props) {
   const [grade, setGrade] = useState('')
   const [classNo, setClassNo] = useState('')
   const [studentCode, setStudentCode] = useState('')
+  const [gender, setGender] = useState<'' | 'male' | 'female'>('')
   const [certCode, setCertCode] = useState('')
   // 동의
   const [privacyAgreed, setPrivacyAgreed] = useState(false)
@@ -127,6 +128,7 @@ function StepRegister({ org, onBack }: Step2Props) {
       if (!grade) { setError('학년을 선택하세요'); return }
       if (!classNo) { setError('반을 선택하세요'); return }
       if (!studentCode.trim()) { setError('학번을 입력하세요'); return }
+      if (!gender) { setError('성별을 선택하세요'); return }
     }
     if (!privacyAgreed) { setError('개인정보 수집·이용에 동의해야 합니다'); return }
     if (isUnder14 && !guardianAgreed) { setError('14세 미만은 법정대리인 동의가 필요합니다'); return }
@@ -145,6 +147,7 @@ function StepRegister({ org, onBack }: Step2Props) {
           grade: Number(grade),
           classNo,
           studentCode: studentCode.trim(),
+          gender: gender as 'male' | 'female',
         }),
         privacyAgreed: true,
         guardianConsentRequired: isUnder14,
@@ -245,16 +248,31 @@ function StepRegister({ org, onBack }: Step2Props) {
               </Form.Select>
             </Col>
           </Row>
-          <Form.Group className="mb-3">
-            <Form.Label className="small fw-semibold">학번</Form.Label>
-            <Form.Control
-              size="sm"
-              placeholder="예: 20250123"
-              value={studentCode}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setStudentCode(e.target.value)}
-              disabled={loading}
-            />
-          </Form.Group>
+          <Row className="g-2 mb-3">
+            <Col xs={7}>
+              <Form.Label className="small fw-semibold">학번</Form.Label>
+              <Form.Control
+                size="sm"
+                placeholder="예: 20250123"
+                value={studentCode}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setStudentCode(e.target.value)}
+                disabled={loading}
+              />
+            </Col>
+            <Col xs={5}>
+              <Form.Label className="small fw-semibold">성별</Form.Label>
+              <Form.Select
+                size="sm"
+                value={gender}
+                onChange={(e) => setGender(e.target.value as '' | 'male' | 'female')}
+                disabled={loading}
+              >
+                <option value="">선택</option>
+                <option value="male">남</option>
+                <option value="female">여</option>
+              </Form.Select>
+            </Col>
+          </Row>
         </>
       )}
 

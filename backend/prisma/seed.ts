@@ -93,7 +93,11 @@ async function main() {
     { id: 'seed-user-admin', role: 'admin' as const,        email: 'admin@allerrealert.kr',       name: '시스템관리자' },
     { id: 'seed-user-nutr',  role: 'nutritionist' as const, email: 'nutritionist@allerrealert.kr',name: '김영양사' },
     { id: 'seed-user-staff', role: 'staff' as const,        email: 'staff@allerrealert.kr',       name: '이교직원' },
-    { id: 'seed-user-stu',   role: 'student' as const,      email: 'student@allerrealert.kr',     name: '박학생' },
+    {
+      id: 'seed-user-stu', role: 'student' as const,
+      email: 'student@allerrealert.kr', name: '박학생',
+      grade: 5, classNo: '3', studentCode: '20250513', gender: 'male' as const,
+    },
     { id: 'seed-user-grd',   role: 'guardian' as const,     email: 'guardian@allerrealert.kr',    name: '최보호자' },
   ]
 
@@ -108,6 +112,10 @@ async function main() {
         name: a.name,
         email: a.email,
         passwordHash: await hash('Test1234!'),
+        ...('grade' in a && { grade: a.grade }),
+        ...('classNo' in a && { classNo: a.classNo }),
+        ...('studentCode' in a && { studentCode: a.studentCode }),
+        ...('gender' in a && { gender: a.gender }),
       },
     })
   }

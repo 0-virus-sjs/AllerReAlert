@@ -24,6 +24,7 @@ export interface SignupPayload {
   grade?: number
   classNo?: string
   studentCode?: string
+  gender?: 'male' | 'female'
   privacyAgreed: boolean
   guardianConsentRequired: boolean
 }
