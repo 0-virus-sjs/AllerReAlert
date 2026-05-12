@@ -34,6 +34,10 @@ export interface UpdateMeInput {
   phone?: string
   groupInfo?: Record<string, unknown>
   notificationSettings?: Record<string, unknown>
+  // T-125: 학생 기본 정보 — role=student일 때만 반영, 다른 role은 무시
+  grade?: number
+  classNo?: string
+  studentCode?: string
 }
 
 export async function updateMe(userId: string, input: UpdateMeInput) {
@@ -51,12 +55,17 @@ export async function updateMe(userId: string, input: UpdateMeInput) {
       ? (input.groupInfo as Prisma.InputJsonValue)
       : undefined
 
+  const isStudent = user.role === 'student'
+
   return prisma.user.update({
     where: { id: userId },
     data: {
       ...(input.name !== undefined && { name: input.name }),
       ...(input.phone !== undefined && { phone: input.phone }),
       ...(groupInfo !== undefined && { groupInfo: groupInfo as Prisma.InputJsonValue }),
+      ...(isStudent && input.grade !== undefined && { grade: input.grade }),
+      ...(isStudent && input.classNo !== undefined && { classNo: input.classNo }),
+      ...(isStudent && input.studentCode !== undefined && { studentCode: input.studentCode }),
     },
     select: userSelect,
   })
