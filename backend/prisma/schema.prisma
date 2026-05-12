@@ -57,8 +57,9 @@ model Organization {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  users     User[]
-  mealPlans MealPlan[]
+  users        User[]
+  mealPlans    MealPlan[]
+  priceCatalog MealPriceCatalog[]
 
   @@map("organizations")
 }
@@ -133,6 +134,28 @@ model Allergen {
   keywords            AllergenKeyword[]
 
   @@map("allergens")
+}
+
+// T-128: 학교별 메뉴 참고 단가 카탈로그
+//   - keyword: 메뉴명 핵심 키워드 (예: '돈가스', '잡곡밥')
+//   - category: rice / soup / side / dessert
+//   - avgPrice: 1식당 참고 단가(원). 정적 단가표 또는 NEIS 응답 단가가 출처
+//   - sampleCount: 이 학교 NEIS 메뉴 이력에서 등장한 횟수
+model MealPriceCatalog {
+  id          String           @id @default(cuid())
+  orgId       String           @map("org_id")
+  keyword     String
+  category    MealItemCategory
+  avgPrice    Int              @map("avg_price")
+  sampleCount Int              @default(0) @map("sample_count")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, keyword])
+  @@index([orgId, category])
+  @@map("meal_price_catalog")
 }
 
 // 알레르기 키워드 사전 (자동 태깅 보강용)
