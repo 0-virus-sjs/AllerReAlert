@@ -37,20 +37,42 @@ async function main() {
   }
   console.log('✅ 알레르기 19종 시드 완료')
 
-  // ── 샘플 학교 1곳 ──────────────────────────────────
-  const org = await prisma.organization.upsert({
-    where: { id: 'seed-org-001' },
-    update: {},
-    create: {
+  // ── 샘플 학교 3곳 ──────────────────────────────────
+  const SCHOOLS = [
+    {
       id: 'seed-org-001',
       name: '알라리알라초등학교',
       address: '서울특별시 강남구 테헤란로 1',
-      orgType: 'school',
       gradeStructure: { grades: [1, 2, 3, 4, 5, 6], classesPerGrade: 4 },
       mealTime: { breakfast: null, lunch: '12:00', dinner: null },
     },
-  })
-  console.log('✅ 샘플 학교 시드 완료:', org.name)
+    {
+      id: 'seed-org-002',
+      name: '알라리알라중학교',
+      address: '서울특별시 강남구 테헤란로 50',
+      gradeStructure: { grades: [1, 2, 3], classesPerGrade: 6 },
+      mealTime: { breakfast: null, lunch: '12:30', dinner: null },
+    },
+    {
+      id: 'seed-org-003',
+      name: '알라리알라고등학교',
+      address: '서울특별시 강남구 테헤란로 100',
+      gradeStructure: { grades: [1, 2, 3], classesPerGrade: 8 },
+      mealTime: { breakfast: '07:30', lunch: '13:00', dinner: '18:00' },
+    },
+  ]
+
+  const orgs = await Promise.all(
+    SCHOOLS.map((s) =>
+      prisma.organization.upsert({
+        where: { id: s.id },
+        update: {},
+        create: { ...s, orgType: 'school' },
+      }),
+    ),
+  )
+  const org = orgs[0] // 기본 사용자 시드는 첫 번째 학교(초등)에 연결
+  console.log(`✅ 샘플 학교 ${orgs.length}곳 시드 완료:`, orgs.map((o) => o.name).join(', '))
 
   // ── 테스트 계정 5종 ────────────────────────────────
   const hash = (pw: string) => bcrypt.hash(pw, 12)
