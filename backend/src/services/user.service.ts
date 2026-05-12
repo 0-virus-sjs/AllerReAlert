@@ -10,10 +10,16 @@ const userSelect = {
   orgId: true,
   phone: true,
   groupInfo: true,
+  grade: true,           // T-123 학생 학년
+  classNo: true,         // T-123 학생 반
+  studentCode: true,     // T-123 학생 학번
   linkCode: true,        // 학생 전용 보호자 연동코드 (T-100)
   consentedAt: true,
   guardianConsentRequired: true,
   createdAt: true,
+  organization: {        // T-123 소속 단체 정보
+    select: { id: true, name: true, address: true, orgType: true, mealTime: true },
+  },
 } satisfies Prisma.UserSelect
 
 export async function getMe(userId: string) {
