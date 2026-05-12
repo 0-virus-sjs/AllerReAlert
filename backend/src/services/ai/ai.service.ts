@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../middlewares/errorHandler'
+import { invalidateMealCache, invalidateOrgAnalyticsCache } from '../../lib/cache'
 import { applyAutoTagging } from '../meal/tagging.service'
 import { getNeisHistory, type NeisHistoryContext } from '../neis/neis.service'
 import { getAIProvider } from './index'
@@ -151,6 +152,11 @@ export async function saveGeneratedMealPlan(
     }
 
     return results
+  }).then((res) => {
+    // AI 생성 식단이 영양사 캘린더·analytics에 즉시 보이도록 캐시 무효화
+    invalidateMealCache(orgId)
+    invalidateOrgAnalyticsCache(orgId)
+    return res
   })
 }
 
