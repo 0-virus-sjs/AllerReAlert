@@ -160,9 +160,11 @@ export interface NeisSchool {
 
 interface NeisSchoolRow {
   ATPT_OFCDC_SC_CODE: string
+  ATPT_OFCDC_SC_NM?: string
   SD_SCHUL_CODE: string
   SCHUL_NM: string
   SCHUL_KND_SC_NM?: string
+  ORG_RDNMA?: string   // 도로명 주소
 }
 
 interface NeisSchoolInfoResponse {
@@ -230,6 +232,72 @@ export async function getSchoolsByAtpt(atptCode: string): Promise<NeisSchool[]> 
   cache.set(key, schools)
   logger.info({ atptCode, count: schools.length }, '[NEIS-학교목록] 조회 완료')
   return schools
+}
+
+// ── T-127: 학교명 검색 (자동완성용) ────────────────────────
+
+export interface NeisSchoolSearchResult {
+  atptCode:   string
+  atptName:   string
+  schoolCode: string
+  name:       string
+  address:    string | null
+  kind:       string
+}
+
+/**
+ * T-127: NEIS schoolInfo로 학교명(부분 일치) 검색. 30분 캐시.
+ * 클라이언트 자동완성용. 결과 ≤ limit건.
+ */
+export async function searchSchools(query: string, limit = 50): Promise<NeisSchoolSearchResult[]> {
+  const q = query.trim()
+  if (!q) return []
+
+  const key = `neis-school-search:${q}:${limit}`
+  const cached = cache.get<NeisSchoolSearchResult[]>(key)
+  if (cached) {
+    logger.debug({ key }, '[NEIS-학교검색] 캐시 히트')
+    return cached
+  }
+
+  const apiKey = process.env.NEIS_API_KEY
+  if (!apiKey) {
+    logger.warn('[NEIS-학교검색] NEIS_API_KEY 미설정')
+    return []
+  }
+
+  const url = new URL(SCHOOL_INFO_BASE)
+  url.searchParams.set('KEY',      apiKey)
+  url.searchParams.set('Type',     'json')
+  url.searchParams.set('pIndex',   '1')
+  url.searchParams.set('pSize',    String(limit))
+  url.searchParams.set('SCHUL_NM', q)
+
+  logger.info({ q, limit }, '[NEIS-학교검색] API 호출')
+  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10_000) })
+  if (!res.ok) throw new Error(`NEIS schoolInfo HTTP ${res.status}`)
+
+  const json = (await res.json()) as NeisSchoolInfoResponse
+  if (json.RESULT) {
+    // INFO-200 (데이터 없음) 등 → 빈 결과 캐시
+    cache.set(key, [], 1800)
+    logger.info({ q, code: json.RESULT.CODE }, '[NEIS-학교검색] 결과 없음')
+    return []
+  }
+
+  const rows = json.schoolInfo?.[1]?.row ?? []
+  const results: NeisSchoolSearchResult[] = rows.map((r) => ({
+    atptCode:   r.ATPT_OFCDC_SC_CODE,
+    atptName:   r.ATPT_OFCDC_SC_NM ?? '',
+    schoolCode: r.SD_SCHUL_CODE,
+    name:       r.SCHUL_NM,
+    address:    r.ORG_RDNMA ?? null,
+    kind:       r.SCHUL_KND_SC_NM ?? '',
+  }))
+
+  cache.set(key, results, 1800)   // 30분
+  logger.info({ q, count: results.length }, '[NEIS-학교검색] 조회 완료')
+  return results
 }
 
 /**
