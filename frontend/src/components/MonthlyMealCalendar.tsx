@@ -26,7 +26,7 @@ function getCalendarCells(ym: string): { date: Date; inMonth: boolean }[] {
   return cells
 }
 
-export type CalendarDayLevel = 'danger' | 'alt' | 'normal'
+export type CalendarDayLevel = 'danger' | 'alt' | 'draft' | 'normal'
 
 interface Props {
   month: string                                                     // 'YYYY-MM'
@@ -101,9 +101,11 @@ export function MonthlyMealCalendar(props: Props) {
               ? '#FDDDE8'
               : level === 'alt'
                 ? '#DAF9DE'
-                : plan
-                  ? '#fff'
-                  : '#FAFEFF'
+                : level === 'draft'
+                  ? '#FFFBE6'
+                  : plan
+                    ? '#fff'
+                    : '#FAFEFF'
 
           return (
             <button
@@ -176,6 +178,23 @@ export function MonthlyMealCalendar(props: Props) {
                   }}
                 >
                   대체
+                </span>
+              )}
+
+              {level === 'draft' && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 4,
+                    right: 4,
+                    fontSize: 8,
+                    padding: '1px 4px',
+                    background: '#E8A820',
+                    color: '#fff',
+                    borderRadius: 2,
+                  }}
+                >
+                  임시
                 </span>
               )}
 
