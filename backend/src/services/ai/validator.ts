@@ -51,10 +51,19 @@ export type AlternateOutput  = z.infer<typeof AlternateOutputSchema>
 
 // ── 영양 검증 옵션 ─────────────────────────────────────────
 
+export interface NutrientItem {
+  key:    string    // 'calories' | 'carbohydrate' | 'protein' | 'fat' | ...
+  label:  string
+  target: number   // 일 평균 제공량
+  unit:   string
+  mode:   'absolute' | 'percent_of_energy'
+}
+
 export interface NutritionThresholds {
   calorieMin?: number
   calorieMax?: number
   proteinMin?: number
+  nutrients?:  NutrientItem[]   // T-130 주 단위 검증용
 }
 
 // ── 내부 유틸 ──────────────────────────────────────────────
@@ -133,10 +142,90 @@ async function callWithValidation<T>(
   throw new Error('unreachable')
 }
 
+// ── 주 단위 영양소 검증 (T-130) ────────────────────────────
+
+// AI 출력에서 추출 가능한 키 → 추출 함수 매핑
+const NUTRIENT_EXTRACTOR: Record<
+  string,
+  (items: MealPlanOutput['mealPlan'][number]['items']) => number
+> = {
+  calories:      (items) => items.reduce((s, i) => s + (i.calories ?? 0), 0),
+  carbohydrate:  (items) => items.reduce((s, i) => s + (i.nutrients?.carbs   ?? 0), 0),
+  protein:       (items) => items.reduce((s, i) => s + (i.nutrients?.protein ?? 0), 0),
+  fat:           (items) => items.reduce((s, i) => s + (i.nutrients?.fat     ?? 0), 0),
+}
+
+// 1g당 에너지 (kcal): fat=9, 나머지=4
+const KCAL_PER_G: Record<string, number> = {
+  carbohydrate: 4, protein: 4, fat: 9,
+}
+
+// 날짜별 데이터를 ISO 주(Mon-Sun)별로 그룹화
+function groupByWeek(
+  days: MealPlanOutput['mealPlan'],
+): Map<string, MealPlanOutput['mealPlan']> {
+  const weeks = new Map<string, MealPlanOutput['mealPlan']>()
+  for (const day of days) {
+    const d = new Date(day.date)
+    const mon = new Date(d)
+    mon.setDate(d.getDate() - ((d.getDay() + 6) % 7))  // 해당 주 월요일
+    const key = mon.toISOString().slice(0, 10)
+    if (!weeks.has(key)) weeks.set(key, [])
+    weeks.get(key)!.push(day)
+  }
+  return weeks
+}
+
+function validateWeeklyNutrients(
+  data: MealPlanOutput,
+  nutrients: NutrientItem[],
+): string | null {
+  const weeks = groupByWeek(data.mealPlan)
+
+  for (const [weekKey, days] of weeks) {
+    const weekCalories = NUTRIENT_EXTRACTOR['calories']?.(days.flatMap((d) => d.items)) ?? 0
+
+    for (const nutrient of nutrients) {
+      const extractor = NUTRIENT_EXTRACTOR[nutrient.key]
+      if (!extractor) continue   // AI 출력에 없는 영양소는 검증 불가
+
+      const weekSum    = extractor(days.flatMap((d) => d.items))
+      if (weekSum <= 0) continue // AI가 값을 제공하지 않은 경우 스킵
+
+      if (nutrient.mode === 'absolute') {
+        const weekTarget = nutrient.target * days.length   // 일 평균 × 실제 급식일 수
+        if (Math.abs(weekSum - weekTarget) > weekTarget * 0.1) {
+          return (
+            `${weekKey} 주 ${nutrient.label} 합계 ${weekSum.toFixed(1)} ${nutrient.unit}가` +
+            ` 목표 ${weekTarget.toFixed(1)} ${nutrient.unit} ±10% 범위를 벗어났습니다.` +
+            ` 각 날짜의 ${nutrient.label}를 조정해주세요.`
+          )
+        }
+      } else {
+        // percent_of_energy: 에너지 비율 검증
+        if (weekCalories <= 0) continue
+        const factor   = KCAL_PER_G[nutrient.key] ?? 4
+        const ratio    = (weekSum * factor) / weekCalories * 100
+        const tolerance = nutrient.target * 0.1              // 목표의 ±10%
+        if (Math.abs(ratio - nutrient.target) > tolerance) {
+          return (
+            `${weekKey} 주 ${nutrient.label} 에너지 비율 ${ratio.toFixed(1)}%가` +
+            ` 목표 ${nutrient.target}% ±${tolerance.toFixed(1)}%p 범위를 벗어났습니다.` +
+            ` ${nutrient.label} 비중을 조정해주세요.`
+          )
+        }
+      }
+    }
+  }
+
+  return null
+}
+
 // ── 공개 API ───────────────────────────────────────────────
 
 /**
  * T-063: 식단 생성 응답 검증 (영양 기준 포함).
+ * T-130: nutrients 배열이 있으면 주 단위 검증을 추가로 수행.
  */
 export async function validateMealPlan(
   messages: AIMessage[],
@@ -150,6 +239,7 @@ export async function validateMealPlan(
     (data) => {
       if (!nutrition) return null
 
+      // 일별 칼로리·단백질 최소/최대 검증 (기존)
       for (const day of data.mealPlan) {
         const totalCal = day.items.reduce((sum, i) => sum + (i.calories ?? 0), 0)
         const totalProtein = day.items.reduce(
@@ -166,6 +256,11 @@ export async function validateMealPlan(
         if (nutrition.proteinMin && totalProtein > 0 && totalProtein < nutrition.proteinMin) {
           return `${day.date} 단백질(${totalProtein}g)이 최소 기준(${nutrition.proteinMin}g) 미달입니다. 단백질 메뉴를 추가해주세요.`
         }
+      }
+
+      // 주 단위 영양소 검증 (T-130)
+      if (nutrition.nutrients && nutrition.nutrients.length > 0) {
+        return validateWeeklyNutrients(data, nutrition.nutrients)
       }
 
       return null

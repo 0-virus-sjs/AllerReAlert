@@ -4,6 +4,7 @@ import { logger } from '../../lib/logger'
 import { AppError } from '../../middlewares/errorHandler'
 import { dispatch } from '../notification/dispatcher'
 import { withRetry } from '../../lib/retry'
+import { invalidateOrgAnalyticsCache } from '../../lib/cache'
 
 const SURVEY_BASE_INCLUDE = {
   mealPlan: { select: { id: true, date: true, orgId: true } },
@@ -124,7 +125,7 @@ export async function submitSurveyResponse(
     throw new AppError(409, 'SURVEY_CLOSED', '마감된 설문에는 응답할 수 없습니다')
   }
 
-  return prisma.surveyResponse.upsert({
+  const saved = await prisma.surveyResponse.upsert({
     where: { surveyId_userId: { surveyId, userId } },
     update: {
       response: input.response,
@@ -139,6 +140,10 @@ export async function submitSurveyResponse(
     },
     select: { id: true, surveyId: true, userId: true, response: true, votedItemId: true, updatedAt: true },
   })
+
+  // 응답 수 변화는 daily-demand/report 분포에 영향
+  invalidateOrgAnalyticsCache(orgId)
+  return saved
 }
 
 // ── T-073: 설문 마감 + 결과 집계 ─────────────────────────
@@ -170,6 +175,8 @@ export async function closeSurvey(surveyId: string, orgId: string): Promise<Surv
   await prisma.survey.update({ where: { id: surveyId }, data: { status: 'closed' } })
 
   const result = aggregateResponses(survey.responses)
+  // closed survey는 월간 리포트(surveyParticipationRate)에 반영됨
+  invalidateOrgAnalyticsCache(orgId)
   logger.info({ surveyId, result }, '[T-073] 설문 마감 완료')
   return result
 }
@@ -178,7 +185,10 @@ export async function closeSurvey(surveyId: string, orgId: string): Promise<Surv
 export async function autoCloseDueSurveys(): Promise<void> {
   const due = await prisma.survey.findMany({
     where: { status: 'open', deadline: { lte: new Date() } },
-    include: { responses: { select: { response: true, votedItemId: true } } },
+    include: {
+      responses: { select: { response: true, votedItemId: true } },
+      mealPlan:  { select: { orgId: true } },
+    },
   })
   if (due.length === 0) return
 
@@ -189,4 +199,8 @@ export async function autoCloseDueSurveys(): Promise<void> {
       logger.info({ surveyId: survey.id, result }, '[T-073] 자동 마감')
     })
   )
+
+  // 영향 받은 org들 일괄 무효화
+  const orgIds = new Set(due.map((s) => s.mealPlan.orgId))
+  for (const orgId of orgIds) invalidateOrgAnalyticsCache(orgId)
 }

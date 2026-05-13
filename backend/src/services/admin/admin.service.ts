@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../middlewares/errorHandler'
+import { invalidateOrgAnalyticsCache } from '../../lib/cache'
 import type { OrgType, UserRole, Prisma } from '@prisma/client'
 
 const PAGE_SIZE = 20
@@ -137,6 +138,12 @@ export async function changeUserRole(
       },
     })
     return updated
+  }).then((res) => {
+    // student↔다른 role 변환 시 school-stats 분포가 바뀜
+    if (user.role === 'student' || newRole === 'student') {
+      invalidateOrgAnalyticsCache(user.orgId)
+    }
+    return res
   })
 }
 
@@ -169,6 +176,10 @@ export async function changeUserStatus(
       },
     })
     return updated
+  }).then((res) => {
+    // 학생 비활성/재활성은 school-stats 인원 카운트에 즉시 영향
+    if (user.role === 'student') invalidateOrgAnalyticsCache(user.orgId)
+    return res
   })
 }
 

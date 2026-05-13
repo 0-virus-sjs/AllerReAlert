@@ -6,10 +6,11 @@ import { authenticate } from '../middlewares/authenticate'
 
 const REFRESH_COOKIE = 'refresh_token'
 
+const isProd = process.env.NODE_ENV === 'production'
 const refreshCookieOptions = {
   httpOnly: true,
-  secure: true,
-  sameSite: 'none' as const,  // Vercel↔Railway 크로스 도메인
+  secure: isProd,
+  sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
   maxAge: 7 * 24 * 60 * 60 * 1000,
   path: '/api/v1/auth',
 }

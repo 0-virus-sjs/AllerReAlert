@@ -1,10 +1,10 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
-import { cache, CacheKey, invalidateMealCache } from '../../lib/cache'
-import { applyAutoTagging } from './tagging.service'
+import { cache, CacheKey, invalidateMealCache, invalidateOrgAnalyticsCache } from '../../lib/cache'
+import { applyAutoTaggingBatch } from './tagging.service'
 import { onPublishedMealChanged } from './change-hook'
 import { AppError } from '../../middlewares/errorHandler'
-import type { MealItemCategory } from '@prisma/client'
+import type { MealItem, MealItemCategory } from '@prisma/client'
 
 export interface MealItemInput {
   category: MealItemCategory
@@ -26,7 +26,7 @@ export async function createMealPlan(input: CreateMealInput) {
   const [y, m, d] = input.date.split('-').map(Number)
   const date = new Date(Date.UTC(y, m - 1, d))
 
-  return prisma.$transaction(async (tx) => {
+  const plan = await prisma.$transaction(async (tx) => {
     const plan = await tx.mealPlan.create({
       data: {
         orgId: input.orgId,
@@ -36,23 +36,24 @@ export async function createMealPlan(input: CreateMealInput) {
       },
     })
 
-    const createdItems = await Promise.all(
-      input.items.map((item) =>
-        tx.mealItem.create({
-          data: {
-            mealPlanId: plan.id,
-            category: item.category,
-            name: item.name,
-            calories: item.calories,
-            nutrients: item.nutrients as Prisma.InputJsonValue | undefined,
-          },
-        }),
-      ),
-    )
+    const createdItems: MealItem[] = []
+    for (const item of input.items) {
+      const created = await tx.mealItem.create({
+        data: {
+          mealPlanId: plan.id,
+          category: item.category,
+          name: item.name,
+          calories: item.calories,
+          nutrients: item.nutrients as Prisma.InputJsonValue | undefined,
+        },
+      })
+      createdItems.push(created)
+    }
 
     // T-033: 각 메뉴명에 대해 알레르기 자동 태깅 (트랜잭션 내)
-    await Promise.all(
-      createdItems.map((item) => applyAutoTagging(item.id, item.name, tx)),
+    await applyAutoTaggingBatch(
+      createdItems.map((item) => ({ mealItemId: item.id, mealItemName: item.name })),
+      tx,
     )
 
     return tx.mealPlan.findUniqueOrThrow({
@@ -68,13 +69,17 @@ export async function createMealPlan(input: CreateMealInput) {
       },
     })
   })
+
+  // 단건 생성 후에도 즉시 GET /meals·analytics 캐시에 반영되도록 무효화
+  invalidateMealCache(input.orgId)
+  invalidateOrgAnalyticsCache(input.orgId)
+  return plan
 }
 
 // 월간 일괄 생성 — 각 날짜별로 독립 트랜잭션
 export async function createBulkMealPlans(inputs: CreateMealInput[]) {
   const plans = await Promise.all(inputs.map(createMealPlan))
-  // 생성 후 해당 org 캐시 무효화
-  if (plans.length > 0) invalidateMealCache(inputs[0].orgId)
+  // createMealPlan 안에서 무효화하므로 별도 호출 불필요
   return plans
 }
 
@@ -171,21 +176,24 @@ export async function updateMealPlan(
       // 기존 MealItems 전체 삭제 (MealItemAllergen cascade)
       await tx.mealItem.deleteMany({ where: { mealPlanId: id } })
 
-      const newItems = await Promise.all(
-        input.items.map((item) =>
-          tx.mealItem.create({
-            data: {
-              mealPlanId: id,
-              category: item.category,
-              name: item.name,
-              calories: item.calories,
-              nutrients: item.nutrients as Prisma.InputJsonValue | undefined,
-            },
-          }),
-        ),
-      )
+      const newItems: MealItem[] = []
+      for (const item of input.items) {
+        const created = await tx.mealItem.create({
+          data: {
+            mealPlanId: id,
+            category: item.category,
+            name: item.name,
+            calories: item.calories,
+            nutrients: item.nutrients as Prisma.InputJsonValue | undefined,
+          },
+        })
+        newItems.push(created)
+      }
       // T-033 자동 태깅 재적용
-      await Promise.all(newItems.map((item) => applyAutoTagging(item.id, item.name, tx)))
+      await applyAutoTaggingBatch(
+        newItems.map((item) => ({ mealItemId: item.id, mealItemName: item.name })),
+        tx,
+      )
     }
 
     const dateUpdate = input.date
@@ -220,6 +228,7 @@ export async function updateMealPlan(
   // 캐시 무효화
   cache.del(CacheKey.mealDetail(id))
   invalidateMealCache(orgId)
+  invalidateOrgAnalyticsCache(orgId)
 
   return updated
 }
@@ -258,6 +267,7 @@ export async function publishMealPlan(
   })
   cache.del(CacheKey.mealDetail(id))
   invalidateMealCache(orgId)
+  invalidateOrgAnalyticsCache(orgId)
   return published
 }
 
@@ -307,4 +317,5 @@ export async function deleteMealPlan(id: string, userId: string, orgId: string) 
 
   cache.del(CacheKey.mealDetail(id))
   invalidateMealCache(orgId)
+  invalidateOrgAnalyticsCache(orgId)
 }

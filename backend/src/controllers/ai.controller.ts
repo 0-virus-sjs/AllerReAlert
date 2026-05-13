@@ -9,18 +9,35 @@ const dateRegex = /^\d{4}-\d{2}-\d{2}$/
 
 // ── T-064: POST /ai/generate-meal-plan ────────────────────
 
+const nutrientItemSchema = z.object({
+  key:    z.string().min(1),
+  label:  z.string().min(1),
+  target: z.number().positive(),
+  unit:   z.string().min(1),
+  mode:   z.enum(['absolute', 'percent_of_energy']),
+})
+
+const priceConstraintSchema = z.object({
+  period:      z.enum(['month', 'week', 'day']),
+  aggregation: z.enum(['avg', 'total']),
+  value:       z.number().positive(),
+})
+
 const generateSchema = z.object({
   period: z.object({
     from: z.string().regex(dateRegex, 'from 형식은 YYYY-MM-DD'),
     to:   z.string().regex(dateRegex, 'to 형식은 YYYY-MM-DD'),
   }),
-  budget:        z.number().positive().optional(),
-  calorieTarget: z.object({ min: z.number().positive(), max: z.number().positive() }).optional(),
-  proteinMin:    z.number().positive().optional(),
-  preferences:   z.array(z.string()).optional(),
-  excludes:      z.array(z.string()).optional(),
-  neisAtptCode:  z.string().optional(),
-  neisSchulCode: z.string().optional(),
+  budget:          z.number().positive().optional(),
+  calorieTarget:   z.object({ min: z.number().positive(), max: z.number().positive() }).optional(),
+  proteinMin:      z.number().positive().optional(),
+  preferences:     z.array(z.string()).optional(),
+  excludes:        z.array(z.string()).optional(),
+  neisAtptCode:    z.string().optional(),
+  neisSchulCode:   z.string().optional(),
+  // T-130
+  nutrients:       z.array(nutrientItemSchema).optional(),
+  priceConstraint: priceConstraintSchema.optional(),
 })
 
 export async function generateMealPlanHandler(req: Request, res: Response, next: NextFunction) {

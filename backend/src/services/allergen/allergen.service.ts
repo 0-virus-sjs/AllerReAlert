@@ -2,6 +2,13 @@ import type { UserRole } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { decrypt, encrypt } from '../../lib/crypto'
 import { AppError } from '../../middlewares/errorHandler'
+import { invalidateOrgAnalyticsCache } from '../../lib/cache'
+
+// 사용자 orgId 조회 (analytics 캐시 무효화용 — UserAllergen 변경 시 분포 캐시가 stale)
+async function getOrgIdOf(userId: string): Promise<string | null> {
+  const u = await prisma.user.findUnique({ where: { id: userId }, select: { orgId: true } })
+  return u?.orgId ?? null
+}
 
 const USER_ALLERGEN_INCLUDE = {
   allergen: { select: { id: true, code: true, name: true, iconUrl: true } },
@@ -85,6 +92,12 @@ export async function registerAllergen(
       after: { allergenId: record.allergenId, status } },
   }).catch(() => {})
 
+  // analytics overview/demand 캐시 무효화 — confirmed 등록은 분포에 즉시 영향
+  if (status === 'confirmed') {
+    const orgId = await getOrgIdOf(userId)
+    if (orgId) invalidateOrgAnalyticsCache(orgId)
+  }
+
   return decodeEntry(record)
 }
 
@@ -130,6 +143,12 @@ export async function updateAllergen(
       before: { status: record.status }, after: { status } },
   }).catch(() => {})
 
+  // analytics 캐시 무효화 — confirmed 상태가 토글되면 분포 영향
+  if (record.status === 'confirmed' || status === 'confirmed') {
+    const orgId = await getOrgIdOf(userId)
+    if (orgId) invalidateOrgAnalyticsCache(orgId)
+  }
+
   return decodeEntry(updated)
 }
 
@@ -143,6 +162,12 @@ export async function deleteAllergen(id: string, userId: string) {
     data: { userId, action: 'ALLERGEN_DELETE', targetType: 'user_allergen', targetId: id,
       before: { allergenId: record.allergenId } },
   }).catch(() => {})
+
+  // confirmed 삭제는 분포에 영향
+  if (record.status === 'confirmed') {
+    const orgId = await getOrgIdOf(userId)
+    if (orgId) invalidateOrgAnalyticsCache(orgId)
+  }
 }
 
 // ── T-049: GET /users/me/alternate-meals?date= ───────────

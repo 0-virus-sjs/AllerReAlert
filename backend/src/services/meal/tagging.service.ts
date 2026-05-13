@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@prisma/client'
+import type { Prisma, PrismaClient } from '@prisma/client'
 
 // 식약처 알레르기 유발물질 19종 키워드 사전
 // allergen.code → 메뉴명/식재료 텍스트에서 탐지할 키워드 목록
@@ -48,6 +48,11 @@ type TxClient = Omit<
   '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
 >
 
+export interface AutoTaggingTarget {
+  mealItemId: string
+  mealItemName: string
+}
+
 /**
  * MealItem 하나에 대해 자동 태깅을 적용한다.
  * Prisma 트랜잭션 클라이언트(tx) 안에서 호출해야 원자성을 보장한다.
@@ -59,23 +64,57 @@ export async function applyAutoTagging(
   mealItemName: string,
   tx: TxClient,
 ): Promise<number> {
-  const codes = detectAllergenCodes(mealItemName)
+  return applyAutoTaggingBatch([{ mealItemId, mealItemName }], tx)
+}
+
+/**
+ * 여러 MealItem의 자동 태깅을 한 번에 적용한다.
+ * 같은 interactive transaction에서 메뉴별 병렬 쿼리를 만들지 않도록 DB 왕복을 합친다.
+ *
+ * @returns 생성 시도한 태깅 row 수 (0이면 해당 없음)
+ */
+export async function applyAutoTaggingBatch(
+  targets: AutoTaggingTarget[],
+  tx: TxClient,
+): Promise<number> {
+  const mealItemIdsByCode = new Map<number, string[]>()
+
+  for (const target of targets) {
+    const codes = detectAllergenCodes(target.mealItemName)
+    for (const code of codes) {
+      const mealItemIds = mealItemIdsByCode.get(code) ?? []
+      mealItemIds.push(target.mealItemId)
+      mealItemIdsByCode.set(code, mealItemIds)
+    }
+  }
+
+  const codes = [...mealItemIdsByCode.keys()]
   if (codes.length === 0) return 0
 
   const allergens = await tx.allergen.findMany({
     where: { code: { in: codes } },
-    select: { id: true },
+    select: { id: true, code: true },
   })
   if (allergens.length === 0) return 0
 
+  const rows: Prisma.MealItemAllergenCreateManyInput[] = []
+  for (const allergen of allergens) {
+    const mealItemIds = mealItemIdsByCode.get(allergen.code) ?? []
+    for (const mealItemId of mealItemIds) {
+      rows.push({
+        mealItemId,
+        allergenId: allergen.id,
+        isAutoTagged: true,
+      })
+    }
+  }
+
+  if (rows.length === 0) return 0
+
   await tx.mealItemAllergen.createMany({
-    data: allergens.map(a => ({
-      mealItemId,
-      allergenId: a.id,
-      isAutoTagged: true,
-    })),
+    data: rows,
     skipDuplicates: true,  // 재호출 시 중복 방지 (멱등)
   })
 
-  return allergens.length
+  return rows.length
 }

@@ -44,3 +44,16 @@ export function analyticsExportUrl(format: 'csv' | 'pdf', month: string): string
   const base = (import.meta.env.VITE_API_URL ?? 'http://localhost:5000/api/v1')
   return `${base}/analytics/export?format=${format}&month=${month}`
 }
+
+// ── T-126: 학교 통계 ──────────────────────────────────────
+
+export interface SchoolStats {
+  totalStudents: number
+  gender: { male: number; female: number; unknown: number }
+  grade: Record<string, number>
+}
+
+export async function fetchSchoolStats(): Promise<SchoolStats> {
+  const res = await api.get<{ data: SchoolStats }>('/analytics/school-stats')
+  return res.data.data
+}

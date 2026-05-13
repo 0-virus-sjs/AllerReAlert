@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
-import { cache, CacheKey, invalidateMealCache } from '../../lib/cache'
+import { cache, CacheKey, invalidateMealCache, invalidateOrgAnalyticsCache } from '../../lib/cache'
 import { AppError } from '../../middlewares/errorHandler'
 import { onAlternatePlanConfirmed } from './survey-hook'
 
@@ -40,7 +40,7 @@ export async function createAlternatePlan(input: CreateAlternateInput) {
   })
   if (!allergen) throw new AppError(404, 'NOT_FOUND', '알레르기 정보를 찾을 수 없습니다')
 
-  return prisma.$transaction(async (tx) => {
+  const created = await prisma.$transaction(async (tx) => {
     const plan = await tx.alternateMealPlan.create({
       data: {
         mealPlanId: input.mealPlanId,
@@ -64,6 +64,11 @@ export async function createAlternatePlan(input: CreateAlternateInput) {
       include: ALTERNATE_INCLUDE,
     })
   })
+
+  // 신규 대체 식단이 GET /meals 응답에 즉시 반영되도록 캐시 무효화
+  invalidateMealCache(input.orgId)
+  cache.del(CacheKey.mealDetail(input.mealPlanId))
+  return created
 }
 
 export async function confirmAlternatePlan(id: string, userId: string, orgId: string) {
@@ -88,6 +93,8 @@ export async function confirmAlternatePlan(id: string, userId: string, orgId: st
   // GET /meals 캐시 무효화 (확정 상태가 반영되도록)
   invalidateMealCache(plan.mealPlan.orgId)
   cache.del(CacheKey.mealDetail(plan.mealPlanId))
+  // 확정된 대체식이 월간 리포트(report)에 가산되므로 analytics 캐시도 무효화
+  invalidateOrgAnalyticsCache(plan.mealPlan.orgId)
 
   // T-070 트리거: 설문 자동 생성 (M7에서 구현)
   await onAlternatePlanConfirmed(id)
