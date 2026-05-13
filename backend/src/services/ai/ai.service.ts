@@ -170,14 +170,27 @@ export async function saveGeneratedMealPlan(
       const [y, m, d] = day.date.split('-').map(Number)
       const date = new Date(Date.UTC(y, m - 1, d))
 
-      const plan = await tx.mealPlan.create({
-        data: { orgId, date, createdBy: userId },
+      // 같은 날짜의 기존 draft가 있으면 items만 교체, plan ID 재사용
+      const existing = await tx.mealPlan.findFirst({
+        where: { orgId, date, status: 'draft' },
+        select: { id: true },
       })
+
+      let planId: string
+      if (existing) {
+        await tx.mealItem.deleteMany({ where: { mealPlanId: existing.id } })
+        planId = existing.id
+      } else {
+        const plan = await tx.mealPlan.create({
+          data: { orgId, date, createdBy: userId },
+        })
+        planId = plan.id
+      }
 
       for (const item of day.items) {
         const created = await tx.mealItem.create({
           data: {
-            mealPlanId: plan.id,
+            mealPlanId: planId,
             category:   item.category,
             name:       item.name,
             calories:   item.calories ?? undefined,
@@ -187,7 +200,7 @@ export async function saveGeneratedMealPlan(
         tagTargets.push({ mealItemId: created.id, mealItemName: created.name })
       }
 
-      results.push({ id: plan.id, date: day.date, itemCount: day.items.length })
+      results.push({ id: planId, date: day.date, itemCount: day.items.length })
     }
 
     await applyAutoTaggingBatch(tagTargets, tx)
