@@ -8,10 +8,17 @@ import { getAIProvider } from './index'
 import { buildMealPlanMessages } from './meal-plan-builder'
 import { buildAlternateMessages } from './alternate-builder'
 import { validateMealPlan, validateAlternate } from './validator'
-import type { NutritionThresholds } from './validator'
+import type { NutritionThresholds, NutrientItem } from './validator'
 import type { DayMenuOutput } from './meal-plan-builder'
+import { getPriceCatalogForPrompt } from '../meal-price/price-catalog.service'
 
 // ── T-064 입력 타입 ────────────────────────────────────────
+
+export interface PriceConstraint {
+  period:      'month' | 'week' | 'day'
+  aggregation: 'avg' | 'total'
+  value:       number
+}
 
 export interface GenerateMealPlanInput {
   period: { from: string; to: string }   // YYYY-MM-DD
@@ -22,6 +29,9 @@ export interface GenerateMealPlanInput {
   excludes?: string[]
   neisAtptCode?: string   // school 기관만
   neisSchulCode?: string
+  // T-130
+  nutrients?:       NutrientItem[]
+  priceConstraint?: PriceConstraint
 }
 
 // ── T-065 입력 타입 ────────────────────────────────────────
@@ -29,6 +39,16 @@ export interface GenerateMealPlanInput {
 export interface SuggestAlternatesInput {
   mealItemId: string
   excludeAllergenCodes: number[]
+}
+
+// T-130: 1식당 단가 정규화 (aggregation=avg → 이미 일 평균, total → 기간 합계 ÷ 급식일 수)
+const MEAL_DAYS_PER_PERIOD: Record<PriceConstraint['period'], number> = {
+  day: 1, week: 5, month: 22,
+}
+
+function normalizeToPerMealPrice(pc: PriceConstraint): number {
+  if (pc.aggregation === 'avg') return Math.round(pc.value)
+  return Math.round(pc.value / MEAL_DAYS_PER_PERIOD[pc.period])
 }
 
 // ── Step 8: 생성 컨텍스트 타입 ─────────────────────────────
@@ -43,6 +63,10 @@ export interface MealPlanGenerationContext {
   proteinMin?: number
   preferences?: string[]
   excludes?: string[]
+  // T-130
+  nutrients?: NutrientItem[]
+  perMealPrice?: number
+  priceCatalogContext?: string
 }
 
 // ── Step 8: 조직 정보 + NEIS 이력 조회 ────────────────────
@@ -74,6 +98,16 @@ export async function buildMealPlanGenerationContext(
     ).catch(() => undefined)
   }
 
+  // T-130: 단가 정규화 + 카탈로그 주입
+  const perMealPrice = input.priceConstraint
+    ? normalizeToPerMealPrice(input.priceConstraint)
+    : undefined
+
+  let priceCatalogContext: string | undefined
+  if (perMealPrice) {
+    priceCatalogContext = await getPriceCatalogForPrompt(orgId).catch(() => undefined)
+  }
+
   return {
     orgId,
     userId,
@@ -84,6 +118,9 @@ export async function buildMealPlanGenerationContext(
     proteinMin:    input.proteinMin,
     preferences:   input.preferences,
     excludes:      input.excludes,
+    nutrients:          input.nutrients,
+    perMealPrice,
+    priceCatalogContext,
   }
 }
 
@@ -94,14 +131,17 @@ export async function generateMealPlanWithAI(
   period: { from: Date; to: Date },
 ): Promise<DayMenuOutput[]> {
   const messages = buildMealPlanMessages({
-    orgType:       ctx.orgType,
+    orgType:             ctx.orgType,
     period,
-    budget:        ctx.budget,
-    calorieTarget: ctx.calorieTarget,
-    proteinMin:    ctx.proteinMin,
-    preferences:   ctx.preferences,
-    excludes:      ctx.excludes,
-    neisHistory:   ctx.neisHistory,
+    budget:              ctx.budget,
+    calorieTarget:       ctx.calorieTarget,
+    proteinMin:          ctx.proteinMin,
+    preferences:         ctx.preferences,
+    excludes:            ctx.excludes,
+    neisHistory:         ctx.neisHistory,
+    nutrients:           ctx.nutrients,
+    perMealPrice:        ctx.perMealPrice,
+    priceCatalogContext: ctx.priceCatalogContext,
   })
 
   const provider = getAIProvider()
@@ -109,6 +149,7 @@ export async function generateMealPlanWithAI(
     calorieMin: ctx.calorieTarget?.min,
     calorieMax: ctx.calorieTarget?.max,
     proteinMin: ctx.proteinMin,
+    nutrients:  ctx.nutrients,
   }
   const aiResult = await validateMealPlan(messages, provider, nutrition)
   return aiResult.mealPlan
