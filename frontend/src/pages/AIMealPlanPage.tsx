@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Alert, Badge, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getMealPlanGenerationJob, startMealPlanGeneration } from '../services/ai.api'
 import type { GenerateMealPlanJob, NutrientItem, PriceConstraint } from '../services/ai.api'
 import { fetchMealConditionDefaults, getMealById, updateMeal } from '../services/meals.api'
@@ -86,11 +86,12 @@ function NutrientRow({ item, onChange, onDelete }: NutrientRowProps) {
 
 export function AIMealPlanPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { from: defFrom, to: defTo } = defaultPeriod()
 
-  // 기간
-  const [periodFrom, setPeriodFrom] = useState(defFrom)
-  const [periodTo,   setPeriodTo]   = useState(defTo)
+  // T-144: URL 파라미터(startDate/endDate)가 있으면 우선 사용
+  const [periodFrom, setPeriodFrom] = useState(searchParams.get('startDate') ?? defFrom)
+  const [periodTo,   setPeriodTo]   = useState(searchParams.get('endDate')   ?? defTo)
 
   // 영양소 항목
   const [nutrients,    setNutrients]    = useState<NutrientItem[]>([])

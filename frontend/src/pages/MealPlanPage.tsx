@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Alert, Spinner } from 'react-bootstrap'
 import { getMeals, createMeal, updateMeal, publishMeal, exportMealXlsx } from '../services/meals.api'
@@ -66,6 +67,7 @@ export function MealPlanPage() {
   const [selectedDates,  setSelectedDates]  = useState<Set<string>>(new Set())
   const [bulkPublishing, setBulkPublishing] = useState(false)
 
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const { data: plans = [], isLoading } = useQuery({
@@ -188,6 +190,14 @@ export function MealPlanPage() {
     }
   }
 
+  // T-144: 선택된 날짜의 min/max로 AIMealPlanPage 이동
+  function handleAiDraft() {
+    const sorted = Array.from(selectedDates).sort()
+    const startDate = sorted[0]
+    const endDate   = sorted[sorted.length - 1]
+    navigate(`/ai-meal-plan?startDate=${startDate}&endDate=${endDate}`)
+  }
+
   return (
     <div className="p-4">
       {/* ── 헤더 ─────────────────────────────────────────── */}
@@ -202,8 +212,9 @@ export function MealPlanPage() {
           <button
             className="btn btn-sm"
             style={{ border: '1px solid #E88FAA', color: '#C06080' }}
-            disabled
-            title="AI 초안 생성은 SCR-011(T-067)에서 구현 예정"
+            disabled={selectedDates.size === 0}
+            title={selectedDates.size === 0 ? '날짜를 선택하면 AI 초안 생성이 활성화됩니다' : 'AI 식단 초안 생성'}
+            onClick={handleAiDraft}
           >
             AI 초안 생성
           </button>
