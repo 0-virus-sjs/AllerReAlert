@@ -28,20 +28,32 @@ export async function createMealPlan(input: CreateMealInput) {
   const date = new Date(Date.UTC(y, m - 1, d))
 
   const plan = await prisma.$transaction(async (tx) => {
-    const plan = await tx.mealPlan.create({
-      data: {
-        orgId: input.orgId,
-        date,
-        createdBy: input.createdBy,
-        // status 기본값 = draft (스키마 default)
-      },
+    // 같은 날짜의 기존 draft가 있으면 items만 교체, plan ID 재사용
+    const existing = await tx.mealPlan.findFirst({
+      where: { orgId: input.orgId, date, status: 'draft' },
+      select: { id: true },
     })
+
+    let planId: string
+    if (existing) {
+      await tx.mealItem.deleteMany({ where: { mealPlanId: existing.id } })
+      planId = existing.id
+    } else {
+      const created = await tx.mealPlan.create({
+        data: {
+          orgId: input.orgId,
+          date,
+          createdBy: input.createdBy,
+        },
+      })
+      planId = created.id
+    }
 
     const createdItems: MealItem[] = []
     for (const item of input.items) {
       const created = await tx.mealItem.create({
         data: {
-          mealPlanId: plan.id,
+          mealPlanId: planId,
           category: item.category,
           name: item.name,
           ingredients: item.ingredients,
@@ -63,7 +75,7 @@ export async function createMealPlan(input: CreateMealInput) {
     )
 
     return tx.mealPlan.findUniqueOrThrow({
-      where: { id: plan.id },
+      where: { id: planId },
       include: {
         items: {
           include: {
