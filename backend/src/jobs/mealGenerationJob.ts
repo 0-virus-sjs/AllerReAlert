@@ -15,13 +15,13 @@ import {
 
 const CHUNK_SIZE = 5 // 영업일 단위
 
-function getWeekdaysBetween(from: string, to: string): string[] {
+function getTargetDays(from: string, to: string, includeWeekends = false): string[] {
   const days: string[] = []
   const cur = new Date(from)
   const end = new Date(to)
   while (cur <= end) {
     const dow = cur.getDay()
-    if (dow >= 1 && dow <= 5) days.push(cur.toISOString().slice(0, 10))
+    if (includeWeekends || (dow >= 1 && dow <= 5)) days.push(cur.toISOString().slice(0, 10))
     cur.setDate(cur.getDate() + 1)
   }
   return days
@@ -56,8 +56,8 @@ async function processMealGenerationJob(jobId: string): Promise<void> {
     // 컨텍스트는 job 시작 시 한 번만 조회 (NEIS 포함)
     const ctx = await buildMealPlanGenerationContext(input, job.orgId, job.requestedBy)
 
-    // 전체 영업일 → chunk 분할
-    const allWeekdays = getWeekdaysBetween(input.period.from, input.period.to)
+    // 전체 대상일 → chunk 분할 (includeWeekends에 따라 주말 포함 여부 결정)
+    const allWeekdays = getTargetDays(input.period.from, input.period.to, input.includeWeekends ?? false)
     const chunks = chunkArray(allWeekdays, CHUNK_SIZE)
     const totalDays = allWeekdays.length
 

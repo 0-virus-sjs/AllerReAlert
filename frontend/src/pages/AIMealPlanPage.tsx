@@ -114,8 +114,9 @@ export function AIMealPlanPage() {
   const [priceValue,    setPriceValue]    = useState('')
 
   // 선호/제외
-  const [preferences, setPreferences] = useState('')
-  const [excludes,    setExcludes]    = useState('')
+  const [preferences,      setPreferences]      = useState('')
+  const [excludes,         setExcludes]         = useState('')
+  const [includeWeekends,  setIncludeWeekends]  = useState(false)
 
   // 실행 상태
   const [loading,       setLoading]       = useState(false)
@@ -216,6 +217,7 @@ export function AIMealPlanPage() {
       ...(preferences.trim() && { preferences: preferences.split(',').map((s) => s.trim()).filter(Boolean) }),
       ...(excludes.trim()    && { excludes:     excludes.split(',').map((s) => s.trim()).filter(Boolean) }),
       ...(neisAtptCode && neisSchulCode && { neisAtptCode, neisSchulCode }),
+      includeWeekends,
     }
     return input
   }
@@ -308,6 +310,15 @@ export function AIMealPlanPage() {
               <Form.Control type="text" placeholder="돼지고기, 새우" value={excludes} onChange={(e) => setExcludes(e.target.value)} />
             </Col>
           </Row>
+          {/* T-145: 주말 포함 여부 */}
+          <Form.Check
+            className="mt-3"
+            type="checkbox"
+            id="include-weekends"
+            label="주말(토·일) 포함"
+            checked={includeWeekends}
+            onChange={(e) => setIncludeWeekends(e.target.checked)}
+          />
         </Card.Body>
       </Card>
 
