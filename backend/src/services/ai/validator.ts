@@ -192,7 +192,7 @@ function groupByWeek(
 function validateWeeklyNutrients(
   data: MealPlanOutput,
   nutrients: NutrientItem[],
-): string | null {
+): null {
   const weeks = groupByWeek(data.mealPlan)
 
   for (const [weekKey, days] of weeks) {
@@ -200,35 +200,30 @@ function validateWeeklyNutrients(
 
     for (const nutrient of nutrients) {
       const extractor = NUTRIENT_EXTRACTOR[nutrient.key]
-      if (!extractor) continue   // AI 출력에 없는 영양소는 검증 불가
+      if (!extractor) continue
 
-      const weekSum    = extractor(days.flatMap((d) => d.items))
-      if (weekSum <= 0) continue // AI가 값을 제공하지 않은 경우 스킵
+      const weekSum = extractor(days.flatMap((d) => d.items))
+      if (weekSum <= 0) continue
 
       if (nutrient.mode === 'absolute') {
-        const weekTarget = nutrient.target * days.length   // 일 평균 × 실제 급식일 수
+        const weekTarget = nutrient.target * days.length
         if (Math.abs(weekSum - weekTarget) > weekTarget * 0.1) {
           const avgActual = weekSum / days.length
           const gap       = nutrient.target - avgActual
-          const direction = gap > 0 ? '높여야' : '낮춰야'
-          return (
-            `${weekKey} 주 ${nutrient.label} 합계 ${weekSum.toFixed(1)} ${nutrient.unit}가` +
-            ` 목표 ${weekTarget.toFixed(1)} ${nutrient.unit} ±10% 범위를 벗어났습니다.` +
-            ` (일 평균 ${avgActual.toFixed(1)} ${nutrient.unit} 생성됨, 목표 ${nutrient.target} ${nutrient.unit}/일)` +
-            ` 각 날짜의 items calories를 하루 평균 약 ${Math.abs(gap).toFixed(0)} ${nutrient.unit} ${direction} 합니다.`
+          logger.warn(
+            { weekKey, nutrient: nutrient.key, avgActual: avgActual.toFixed(1), target: nutrient.target, gap: gap.toFixed(0) },
+            '[T-130] 주 단위 영양소 목표 미달성 — 그대로 저장',
           )
         }
       } else {
-        // percent_of_energy: 에너지 비율 검증
         if (weekCalories <= 0) continue
-        const factor   = KCAL_PER_G[nutrient.key] ?? 4
-        const ratio    = (weekSum * factor) / weekCalories * 100
-        const tolerance = nutrient.target * 0.1              // 목표의 ±10%
+        const factor    = KCAL_PER_G[nutrient.key] ?? 4
+        const ratio     = (weekSum * factor) / weekCalories * 100
+        const tolerance = nutrient.target * 0.1
         if (Math.abs(ratio - nutrient.target) > tolerance) {
-          return (
-            `${weekKey} 주 ${nutrient.label} 에너지 비율 ${ratio.toFixed(1)}%가` +
-            ` 목표 ${nutrient.target}% ±${tolerance.toFixed(1)}%p 범위를 벗어났습니다.` +
-            ` ${nutrient.label} 비중을 조정해주세요.`
+          logger.warn(
+            { weekKey, nutrient: nutrient.key, ratio: ratio.toFixed(1), target: nutrient.target },
+            '[T-130] 주 단위 에너지 비율 목표 미달성 — 그대로 저장',
           )
         }
       }
