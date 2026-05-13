@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Alert, Spinner } from 'react-bootstrap'
+import { Spinner } from 'react-bootstrap'
+import { FlashAlert } from '../components/common/FlashAlert'
 import { getMeals, createMeal, updateMeal, publishMeal, exportMealXlsx } from '../services/meals.api'
 import type { MealItemInput, MealPlan } from '../types/meal'
 import { MealItemRow } from '../components/meal/MealItemRow'
@@ -266,14 +267,12 @@ export function MealPlanPage() {
       </div>
 
       {saveMsg && (
-        <Alert
+        <FlashAlert
           variant={saveMsg.type === 'success' ? 'success' : 'danger'}
-          className="py-2 mb-3 small"
+          text={saveMsg.text}
           onClose={() => setSaveMsg(null)}
-          dismissible
-        >
-          {saveMsg.text}
-        </Alert>
+          className="mb-3"
+        />
       )}
 
       {/* ── 보기 전환 ────────────────────────────────────── */}

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Alert, Button, Card, Container, Form, Spinner, Tab, Tabs } from 'react-bootstrap'
+import { FlashAlert } from '../components/common/FlashAlert'
 import { useAuthStore } from '../stores/auth.store'
 import { authApi } from '../services/auth.api'
 import type { UserRole } from '../types/auth'
@@ -90,9 +91,7 @@ export function LoginPage() {
             )}
 
             {error && (
-              <Alert variant="danger" className="py-2 small" onClose={() => setError(null)} dismissible>
-                {error}
-              </Alert>
+              <FlashAlert variant="danger" text={error} onClose={() => setError(null)} />
             )}
 
             <Form onSubmit={handleSubmit} noValidate>

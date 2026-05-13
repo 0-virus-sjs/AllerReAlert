@@ -4,6 +4,7 @@ import {
   Alert, Button, Card, Col, Container, Form,
   ProgressBar, Row, Spinner,
 } from 'react-bootstrap'
+import { FlashAlert } from '../components/common/FlashAlert'
 import { authApi, type VerifyOrgResponse } from '../services/auth.api'
 import type { UserRole } from '../types/auth'
 
@@ -171,9 +172,7 @@ function StepRegister({ org, onBack }: Step2Props) {
       </Alert>
 
       {error && (
-        <Alert variant="danger" className="py-2 small" onClose={() => setError(null)} dismissible>
-          {error}
-        </Alert>
+        <FlashAlert variant="danger" text={error} onClose={() => setError(null)} />
       )}
 
       {/* 역할 선택 */}

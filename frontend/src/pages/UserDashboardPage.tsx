@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Alert, Spinner } from 'react-bootstrap'
+import { FlashAlert } from '../components/common/FlashAlert'
 import { useQuery } from '@tanstack/react-query'
 import { getMeals, exportMealPdf, exportMealXlsx } from '../services/meals.api'
 import { getMyAllergens } from '../services/allergens.api'
@@ -180,9 +181,7 @@ export function UserDashboardPage() {
       </div>
 
       {pdfError && (
-        <Alert variant="danger" className="py-2 mb-2 small" dismissible onClose={() => setPdfError('')}>
-          {pdfError}
-        </Alert>
+        <FlashAlert variant="danger" text={pdfError} onClose={() => setPdfError('')} className="mb-2" />
       )}
 
       {/* ── 보기 전환 ────────────────────────────────────── */}
