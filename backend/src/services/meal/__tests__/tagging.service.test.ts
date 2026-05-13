@@ -152,3 +152,27 @@ describe('detectAllergenCodes — 식약처 19종', () => {
     expect(detectAllergenCodes('')).toHaveLength(0)
   })
 })
+
+// ── T-133: 식재료 OR 매핑 ─────────────────────────────────────────────────────
+describe('detectAllergenCodes — 식재료 OR 매핑', () => {
+  it('메뉴명에 없어도 식재료에 있으면 태깅 — "채소볶음" + "달걀,간장" → [1]', () => {
+    const combined = '채소볶음 달걀,간장'
+    expect(detectAllergenCodes(combined)).toContain(1)
+  })
+
+  it('메뉴명에 있으면 식재료 없어도 태깅 — "달걀말이" + "" → [1]', () => {
+    expect(detectAllergenCodes('달걀말이')).toContain(1)
+  })
+
+  it('메뉴명+식재료 모두 감지 시 합집합 반환 — "된장국" + "두부,쇠고기" → [5, 16]', () => {
+    const combined = '된장국 두부,쇠고기'
+    const codes = detectAllergenCodes(combined)
+    expect(codes).toContain(5)   // 된장(대두) + 두부(대두)
+    expect(codes).toContain(16)  // 쇠고기
+  })
+
+  it('메뉴명+식재료 모두 무해하면 [] — "채소볶음" + "시금치,당근" → []', () => {
+    const combined = '채소볶음 시금치,당근'
+    expect(detectAllergenCodes(combined)).toHaveLength(0)
+  })
+})

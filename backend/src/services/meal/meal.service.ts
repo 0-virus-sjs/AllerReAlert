@@ -9,6 +9,7 @@ import type { MealItem, MealItemCategory } from '@prisma/client'
 export interface MealItemInput {
   category: MealItemCategory
   name: string
+  ingredients?: string
   calories?: number
   nutrients?: Record<string, unknown>
 }
@@ -43,6 +44,7 @@ export async function createMealPlan(input: CreateMealInput) {
           mealPlanId: plan.id,
           category: item.category,
           name: item.name,
+          ingredients: item.ingredients,
           calories: item.calories,
           nutrients: item.nutrients as Prisma.InputJsonValue | undefined,
         },
@@ -50,9 +52,13 @@ export async function createMealPlan(input: CreateMealInput) {
       createdItems.push(created)
     }
 
-    // T-033: 각 메뉴명에 대해 알레르기 자동 태깅 (트랜잭션 내)
+    // T-033/T-133: 메뉴명 OR 식재료 키워드 합집합으로 알레르기 자동 태깅 (트랜잭션 내)
     await applyAutoTaggingBatch(
-      createdItems.map((item) => ({ mealItemId: item.id, mealItemName: item.name })),
+      input.items.map((item, i) => ({
+        mealItemId: createdItems[i].id,
+        mealItemName: item.name,
+        ingredients: item.ingredients,
+      })),
       tx,
     )
 
@@ -183,15 +189,20 @@ export async function updateMealPlan(
             mealPlanId: id,
             category: item.category,
             name: item.name,
+            ingredients: item.ingredients,
             calories: item.calories,
             nutrients: item.nutrients as Prisma.InputJsonValue | undefined,
           },
         })
         newItems.push(created)
       }
-      // T-033 자동 태깅 재적용
+      // T-033/T-133 자동 태깅 재적용 — 메뉴명 OR 식재료 합집합
       await applyAutoTaggingBatch(
-        newItems.map((item) => ({ mealItemId: item.id, mealItemName: item.name })),
+        input.items!.map((item, i) => ({
+          mealItemId: newItems[i].id,
+          mealItemName: item.name,
+          ingredients: item.ingredients,
+        })),
         tx,
       )
     }

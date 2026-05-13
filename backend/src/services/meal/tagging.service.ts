@@ -51,6 +51,7 @@ type TxClient = Omit<
 export interface AutoTaggingTarget {
   mealItemId: string
   mealItemName: string
+  ingredients?: string
 }
 
 /**
@@ -63,13 +64,14 @@ export async function applyAutoTagging(
   mealItemId: string,
   mealItemName: string,
   tx: TxClient,
+  ingredients?: string,
 ): Promise<number> {
-  return applyAutoTaggingBatch([{ mealItemId, mealItemName }], tx)
+  return applyAutoTaggingBatch([{ mealItemId, mealItemName, ingredients }], tx)
 }
 
 /**
  * 여러 MealItem의 자동 태깅을 한 번에 적용한다.
- * 같은 interactive transaction에서 메뉴별 병렬 쿼리를 만들지 않도록 DB 왕복을 합친다.
+ * 메뉴명과 식재료 두 텍스트를 OR 합집합으로 처리 — 어느 쪽에서든 감지되면 태깅.
  *
  * @returns 생성 시도한 태깅 row 수 (0이면 해당 없음)
  */
@@ -80,7 +82,10 @@ export async function applyAutoTaggingBatch(
   const mealItemIdsByCode = new Map<number, string[]>()
 
   for (const target of targets) {
-    const codes = detectAllergenCodes(target.mealItemName)
+    const combinedText = target.ingredients
+      ? `${target.mealItemName} ${target.ingredients}`
+      : target.mealItemName
+    const codes = detectAllergenCodes(combinedText)
     for (const code of codes) {
       const mealItemIds = mealItemIdsByCode.get(code) ?? []
       mealItemIds.push(target.mealItemId)

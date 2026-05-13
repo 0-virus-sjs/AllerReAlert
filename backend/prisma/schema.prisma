@@ -294,12 +294,13 @@ model MealPlan {
 }
 
 model MealItem {
-  id         String          @id @default(cuid())
-  mealPlanId String          @map("meal_plan_id")
-  category   MealItemCategory
-  name       String
-  calories   Int?
-  nutrients  Json?
+  id          String           @id @default(cuid())
+  mealPlanId  String           @map("meal_plan_id")
+  category    MealItemCategory
+  name        String
+  ingredients String?
+  calories    Int?
+  nutrients   Json?
 
   mealPlan       MealPlan           @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
   allergens      MealItemAllergen[]
