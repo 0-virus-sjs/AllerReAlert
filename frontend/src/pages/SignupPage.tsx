@@ -94,6 +94,8 @@ function StepRegister({ org, onBack }: Step2Props) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
+  const [showPw,    setShowPw]    = useState(false)
+  const [showConfirmPw, setShowConfirmPw] = useState(false)
   const [phone, setPhone] = useState('')
   // 역할별 추가 필드
   const [grade, setGrade] = useState('')
@@ -209,13 +211,45 @@ function StepRegister({ org, onBack }: Step2Props) {
       <Row className="g-2 mb-2">
         <Col>
           <Form.Label className="small fw-semibold">비밀번호</Form.Label>
-          <Form.Control size="sm" type="password" placeholder="8자 이상·영문·숫자·특수문자" value={password}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} disabled={loading} />
+          <div className="input-group input-group-sm">
+            <Form.Control
+              type={showPw ? 'text' : 'password'}
+              placeholder="8자 이상·영문·숫자·특수문자"
+              value={password}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+              disabled={loading}
+            />
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={() => setShowPw((v) => !v)}
+              tabIndex={-1}
+              aria-label={showPw ? '비밀번호 숨기기' : '비밀번호 표시'}
+            >
+              <i className={`bi bi-eye${showPw ? '-slash' : ''}`} />
+            </button>
+          </div>
         </Col>
         <Col>
           <Form.Label className="small fw-semibold">비밀번호 확인</Form.Label>
-          <Form.Control size="sm" type="password" placeholder="다시 입력" value={confirmPw}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setConfirmPw(e.target.value)} disabled={loading} />
+          <div className="input-group input-group-sm">
+            <Form.Control
+              type={showConfirmPw ? 'text' : 'password'}
+              placeholder="다시 입력"
+              value={confirmPw}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setConfirmPw(e.target.value)}
+              disabled={loading}
+            />
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={() => setShowConfirmPw((v) => !v)}
+              tabIndex={-1}
+              aria-label={showConfirmPw ? '비밀번호 숨기기' : '비밀번호 표시'}
+            >
+              <i className={`bi bi-eye${showConfirmPw ? '-slash' : ''}`} />
+            </button>
+          </div>
         </Col>
       </Row>
 

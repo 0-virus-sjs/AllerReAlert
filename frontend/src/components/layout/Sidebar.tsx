@@ -51,12 +51,11 @@ export function Sidebar({ role, onClose }: Props) {
 
   return (
     <nav className="d-flex flex-column bg-white border-end" style={{ width: 220, minHeight: '100%' }}>
-      <div className="p-3 border-bottom d-flex align-items-center justify-content-between">
-        <span className="fw-bold text-primary fs-6">🍽️ AllerReAlert</span>
-        {onClose && (
-          <button className="btn btn-sm btn-light d-md-none" onClick={onClose}>✕</button>
-        )}
-      </div>
+      {onClose && (
+        <div className="p-2 border-bottom d-flex justify-content-end d-md-none">
+          <button className="btn btn-sm btn-light" onClick={onClose}>✕</button>
+        </div>
+      )}
       <ul className="nav flex-column flex-grow-1 p-2">
         {items.map((item) => (
           <li key={item.to} className="nav-item">

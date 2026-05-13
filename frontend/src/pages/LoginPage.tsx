@@ -23,6 +23,7 @@ export function LoginPage() {
   const [role, setRole] = useState<UserRole>('student')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -109,14 +110,25 @@ export function LoginPage() {
 
               <Form.Group className="mb-4">
                 <Form.Label className="small fw-semibold">비밀번호</Form.Label>
-                <Form.Control
-                  type="password"
-                  placeholder="비밀번호 입력"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                  autoComplete="current-password"
-                />
+                <div className="input-group">
+                  <Form.Control
+                    type={showPw ? 'text' : 'password'}
+                    placeholder="비밀번호 입력"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary"
+                    onClick={() => setShowPw((v) => !v)}
+                    tabIndex={-1}
+                    aria-label={showPw ? '비밀번호 숨기기' : '비밀번호 표시'}
+                  >
+                    <i className={`bi bi-eye${showPw ? '-slash' : ''}`} />
+                  </button>
+                </div>
               </Form.Group>
 
               <Button
