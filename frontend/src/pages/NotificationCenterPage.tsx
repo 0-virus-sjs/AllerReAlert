@@ -71,6 +71,16 @@ export function NotificationCenterPage() {
     }
   }, [page])
 
+  // 알림 설정 초기 로드
+  useEffect(() => {
+    notificationsApi.getSettings().then(({ data }) => {
+      const s = data.data
+      if (s.channels) setChannels(s.channels)
+      if (s.quietHoursStart) setQuietStart(s.quietHoursStart)
+      if (s.quietHoursEnd)   setQuietEnd(s.quietHoursEnd)
+    }).catch(() => {/* 설정 없으면 기본값 유지 */})
+  }, [])
+
   // 초기 로딩 + 30초 폴링
   useEffect(() => {
     fetchNotifications()
