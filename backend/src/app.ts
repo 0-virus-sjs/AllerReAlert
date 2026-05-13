@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import * as Sentry from '@sentry/node'
 import express from 'express'
 import cors from 'cors'
@@ -5,7 +6,6 @@ import helmet from 'helmet'
 import pinoHttp from 'pino-http'
 import compression from 'compression'
 import cookieParser from 'cookie-parser'
-import dotenv from 'dotenv'
 import { logger } from './lib/logger'
 import { generalLimiter } from './middlewares/rateLimits'
 import { registerBackupJob } from './jobs/backupJob'
@@ -18,8 +18,6 @@ import { recoverStuckJobs } from './jobs/mealGenerationJob'
 import router from './routes'
 import { errorHandler } from './middlewares/errorHandler'
 import { sendSuccess } from './middlewares/response'
-
-dotenv.config()
 
 // ── Sentry (DSN 없으면 비활성화) ──────────────────────
 if (process.env.SENTRY_DSN) {
