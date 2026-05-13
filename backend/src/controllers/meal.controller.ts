@@ -49,6 +49,7 @@ export async function getMealHandler(req: Request, res: Response, next: NextFunc
 const mealItemSchema = z.object({
   category: z.enum(['rice', 'soup', 'side', 'dessert']),
   name: z.string().min(1, '메뉴 이름을 입력하세요').max(100),
+  ingredients: z.string().max(500).optional(),
   calories: z.number().int().nonnegative().optional(),
   nutrients: z.record(z.string(), z.unknown()).optional(),
 })
