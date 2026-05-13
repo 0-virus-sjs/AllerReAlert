@@ -4,7 +4,7 @@ import { Alert, Spinner } from 'react-bootstrap'
 import { getMeals, createMeal, updateMeal, publishMeal } from '../services/meals.api'
 import type { MealItemInput, MealPlan } from '../types/meal'
 import { MealItemRow } from '../components/meal/MealItemRow'
-import { MealItemModal } from '../components/meal/MealItemModal'
+import { MealItemFormModal } from '../components/meal/MealItemFormModal'
 import { PublishModal } from '../components/meal/PublishModal'
 import { MonthlyMealCalendar, type CalendarDayLevel } from '../components/MonthlyMealCalendar'
 
@@ -40,6 +40,7 @@ function planToInputs(plan: MealPlan | undefined): MealItemInput[] {
     plan?.items.map((it) => ({
       category: it.category,
       name: it.name,
+      ingredients: it.ingredients ?? undefined,
       calories: it.calories ?? undefined,
     })) ?? []
   )
@@ -362,26 +363,26 @@ export function MealPlanPage() {
       )}
 
       {/* ── 메뉴 추가 모달 ───────────────────────────────── */}
-      <MealItemModal
+      <MealItemFormModal
         show={showAddModal}
         onSave={(item) => {
           setLocalItems((prev) => [...prev, item])
           setIsDirty(true)
           setShowAddModal(false)
         }}
-        onHide={() => setShowAddModal(false)}
+        onCancel={() => setShowAddModal(false)}
       />
 
       {/* ── 메뉴 편집 모달 ───────────────────────────────── */}
-      <MealItemModal
+      <MealItemFormModal
         show={editingIndex !== null}
-        initial={editingIndex !== null ? localItems[editingIndex] : undefined}
+        initialValues={editingIndex !== null ? localItems[editingIndex] : undefined}
         onSave={(item) => {
           setLocalItems((prev) => prev.map((it, i) => (i === editingIndex ? item : it)))
           setIsDirty(true)
           setEditingIndex(null)
         }}
-        onHide={() => setEditingIndex(null)}
+        onCancel={() => setEditingIndex(null)}
       />
 
       {/* ── 공개 설정 모달 ───────────────────────────────── */}
