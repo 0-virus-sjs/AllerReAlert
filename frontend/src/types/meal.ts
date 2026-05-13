@@ -48,10 +48,18 @@ export interface MealPlan {
   alternatePlans: AlternatePlan[]
 }
 
+export interface MealItemNutrients {
+  carbs?: number
+  protein?: number
+  fat?: number
+}
+
 export interface MealItemInput {
   category: MealItemCategory
   name: string
+  ingredients?: string
   calories?: number
+  nutrients?: MealItemNutrients
 }
 
 export interface CreateAlternateInput {
