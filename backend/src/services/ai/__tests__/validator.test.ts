@@ -196,20 +196,21 @@ describe('validateMealPlan — T-130 주 단위 영양소 검증', () => {
     expect(provider.complete).toHaveBeenCalledTimes(1)
   })
 
-  it('absolute 모드 — 주간 합계 범위 초과 시 재요청 → 성공', async () => {
-    // 100 kcal vs target 650: |100-650|=550 > 65 → 재요청
+  it('absolute 모드 — 주간 합계 범위 초과 시 경고만 기록 (재요청 없음)', async () => {
+    // 100 kcal vs target 650: 범위 초과지만 soft validation → 경고 로그만, 그대로 반환
     const lowCalPlan = JSON.stringify({
       mealPlan: [{ date: '2026-05-07', items: [
         { name: '밥', category: 'rice', calories: 100, nutrients: null, allergenCodes: [] },
       ]}],
     })
-    const provider = makeProvider([lowCalPlan, VALID_MEAL_PLAN])
-    await validateMealPlan(
+    const provider = makeProvider([lowCalPlan])
+    const result = await validateMealPlan(
       [{ role: 'user', content: '식단' }],
       provider,
       { nutrients: [{ key: 'calories', label: '칼로리', target: 650, unit: 'kcal', mode: 'absolute' }] },
     )
-    expect(provider.complete).toHaveBeenCalledTimes(2)
+    expect(provider.complete).toHaveBeenCalledTimes(1)
+    expect(result.mealPlan).toHaveLength(1)
   })
 
   it('carbohydrate absolute 모드 통과', async () => {
@@ -254,40 +255,40 @@ describe('validateMealPlan — T-130 주 단위 영양소 검증', () => {
     expect(provider.complete).toHaveBeenCalledTimes(1)
   })
 
-  it('percent_of_energy 모드 — 지방 비율 fat(9kcal/g) 범위 초과 시 재요청', async () => {
-    // lowFatPlan: fat=3g, calories=600 → 3*9/600=4.5%
-    // target=15%, tolerance=1.5% → |4.5-15|=10.5 > 1.5 → 재요청
-    // VALID_MEAL_PLAN retry: fat=10g, calories=600 → 15% → |15-15|=0 < 1.5 → 통과
+  it('percent_of_energy 모드 — 지방 비율 fat(9kcal/g) 범위 초과 시 경고만 기록 (재요청 없음)', async () => {
+    // fat=3g, calories=600 → 3*9/600=4.5%, target=15% → 범위 초과지만 soft validation
     const lowFatPlan = JSON.stringify({
       mealPlan: [{ date: '2026-05-07', items: [
         { name: '현미밥', category: 'rice', calories: 600,
           nutrients: { carbs: 90, protein: 30, fat: 3 }, allergenCodes: [] },
       ]}],
     })
-    const provider = makeProvider([lowFatPlan, VALID_MEAL_PLAN])
-    await validateMealPlan(
+    const provider = makeProvider([lowFatPlan])
+    const result = await validateMealPlan(
       [{ role: 'user', content: '식단' }],
       provider,
       { nutrients: [{ key: 'fat', label: '지방', target: 15, unit: '%', mode: 'percent_of_energy' }] },
     )
-    expect(provider.complete).toHaveBeenCalledTimes(2)
+    expect(provider.complete).toHaveBeenCalledTimes(1)
+    expect(result.mealPlan).toHaveLength(1)
   })
 
-  it('percent_of_energy 모드 — 탄수화물 비율 범위 초과 시 재요청', async () => {
-    // carbs=3g, calories=600 → 3*4/600=2%  target=60%, tolerance=6% → 재요청
+  it('percent_of_energy 모드 — 탄수화물 비율 범위 초과 시 경고만 기록 (재요청 없음)', async () => {
+    // carbs=3g, calories=600 → 3*4/600=2%, target=60% → 범위 초과지만 soft validation
     const lowCarbPlan = JSON.stringify({
       mealPlan: [{ date: '2026-05-07', items: [
         { name: '고기볶음', category: 'side', calories: 600,
           nutrients: { carbs: 3, protein: 40, fat: 35 }, allergenCodes: [16] },
       ]}],
     })
-    const provider = makeProvider([lowCarbPlan, VALID_MEAL_PLAN])
-    await validateMealPlan(
+    const provider = makeProvider([lowCarbPlan])
+    const result = await validateMealPlan(
       [{ role: 'user', content: '식단' }],
       provider,
       { nutrients: [{ key: 'carbohydrate', label: '탄수화물', target: 60, unit: '%', mode: 'percent_of_energy' }] },
     )
-    expect(provider.complete).toHaveBeenCalledTimes(2)
+    expect(provider.complete).toHaveBeenCalledTimes(1)
+    expect(result.mealPlan).toHaveLength(1)
   })
 
   it('extractor 없는 키(calcium)는 주 단위 검증 스킵 → 통과', async () => {
