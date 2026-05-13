@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Alert, Spinner } from 'react-bootstrap'
-import { getMeals, createMeal, updateMeal, publishMeal } from '../services/meals.api'
+import { getMeals, createMeal, updateMeal, publishMeal, exportMealXlsx } from '../services/meals.api'
 import type { MealItemInput, MealPlan } from '../types/meal'
 import { MealItemRow } from '../components/meal/MealItemRow'
 import { MealItemFormModal } from '../components/meal/MealItemFormModal'
@@ -60,6 +60,7 @@ export function MealPlanPage() {
   const [showPublish,    setShowPublish]    = useState(false)
   const [saveMsg,        setSaveMsg]        = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [view,           setView]           = useState<CalendarView>('calendar')
+  const [xlsxLoading,    setXlsxLoading]    = useState(false)
 
   const queryClient = useQueryClient()
 
@@ -135,6 +136,17 @@ export function MealPlanPage() {
   const [y, m]   = month.split('-').map(Number)
   const isSaving = saveMutation.isPending
 
+  async function handleExportXlsx() {
+    setXlsxLoading(true)
+    try {
+      await exportMealXlsx(month)
+    } catch {
+      setSaveMsg({ type: 'error', text: '엑셀 다운로드에 실패했습니다.' })
+    } finally {
+      setXlsxLoading(false)
+    }
+  }
+
   return (
     <div className="p-4">
       {/* ── 헤더 ─────────────────────────────────────────── */}
@@ -153,6 +165,14 @@ export function MealPlanPage() {
             title="AI 초안 생성은 SCR-011(T-067)에서 구현 예정"
           >
             AI 초안 생성
+          </button>
+          <button
+            className="btn btn-sm btn-outline-success"
+            onClick={handleExportXlsx}
+            disabled={xlsxLoading}
+            title="이달 식단 엑셀 다운로드"
+          >
+            {xlsxLoading ? <Spinner size="sm" animation="border" /> : '📊 엑셀 저장'}
           </button>
           <button
             className="btn btn-sm btn-outline-secondary"

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Alert, Spinner } from 'react-bootstrap'
 import { useQuery } from '@tanstack/react-query'
-import { getMeals, exportMealPdf } from '../services/meals.api'
+import { getMeals, exportMealPdf, exportMealXlsx } from '../services/meals.api'
 import { getMyAllergens } from '../services/allergens.api'
 import { AllergenList } from '../components/allergen/AllergenList'
 import { MonthlyMealCalendar, type CalendarDayLevel } from '../components/MonthlyMealCalendar'
@@ -43,6 +43,7 @@ export function UserDashboardPage() {
   const [selectedDate, setSelectedDate] = useState(today)
   const [pdfLoading,   setPdfLoading]   = useState(false)
   const [pdfError,     setPdfError]     = useState('')
+  const [xlsxLoading,  setXlsxLoading]  = useState(false)
   const [view,         setView]         = useState<CalendarView>('calendar')
 
   const { data: allPlans = [], isLoading: mealsLoading } = useQuery({
@@ -94,6 +95,17 @@ export function UserDashboardPage() {
       setPdfError('PDF 다운로드에 실패했습니다.')
     } finally {
       setPdfLoading(false)
+    }
+  }
+
+  async function handleExportXlsx() {
+    setXlsxLoading(true)
+    try {
+      await exportMealXlsx(month)
+    } catch {
+      setPdfError('엑셀 다운로드에 실패했습니다.')
+    } finally {
+      setXlsxLoading(false)
     }
   }
 
@@ -154,9 +166,15 @@ export function UserDashboardPage() {
             disabled={pdfLoading}
             title="이달 식단 PDF 다운로드"
           >
-            {pdfLoading
-              ? <Spinner size="sm" animation="border" />
-              : '🖨️ PDF 다운로드'}
+            {pdfLoading ? <Spinner size="sm" animation="border" /> : '🖨️ PDF'}
+          </button>
+          <button
+            className="btn btn-sm btn-outline-success"
+            onClick={handleExportXlsx}
+            disabled={xlsxLoading}
+            title="이달 식단 엑셀 다운로드"
+          >
+            {xlsxLoading ? <Spinner size="sm" animation="border" /> : '📊 엑셀 저장'}
           </button>
         </div>
       </div>
