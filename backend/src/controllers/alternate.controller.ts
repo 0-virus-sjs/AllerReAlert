@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
-import { createAlternatePlan, confirmAlternatePlan } from '../services/alternate/alternate.service'
+import { createAlternatePlan, confirmAlternatePlan, saveAlternatePlans } from '../services/alternate/alternate.service'
 import { sendSuccess } from '../middlewares/response'
 
 const alternateItemSchema = z.object({
@@ -24,6 +24,19 @@ export async function createAlternateHandler(req: Request, res: Response, next: 
 
     const plan = await createAlternatePlan({ ...body, mealPlanId, orgId })
     sendSuccess(res, plan, 201)
+  } catch (err) {
+    next(err)
+  }
+}
+
+// POST /meals/:id/alternates/save  (T-136)
+export async function saveAlternatesHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const mealPlanId          = req.params.id
+    const { sub: userId, orgId } = req.user!
+
+    const result = await saveAlternatePlans(mealPlanId, userId, orgId)
+    sendSuccess(res, result)
   } catch (err) {
     next(err)
   }

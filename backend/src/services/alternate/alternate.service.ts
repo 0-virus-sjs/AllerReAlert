@@ -71,6 +71,43 @@ export async function createAlternatePlan(input: CreateAlternateInput) {
   return created
 }
 
+// T-136: POST /meals/:mealPlanId/alternates/save
+// 후보 1개 → 즉시 확정(설문 없음) / 2개↑ → 설문 자동 생성
+export async function saveAlternatePlans(mealPlanId: string, userId: string, orgId: string) {
+  const mealPlan = await prisma.mealPlan.findFirst({ where: { id: mealPlanId, orgId } })
+  if (!mealPlan) throw new AppError(404, 'NOT_FOUND', '식단을 찾을 수 없습니다')
+
+  const drafts = await prisma.alternateMealPlan.findMany({
+    where: { mealPlanId, status: 'draft' },
+    include: ALTERNATE_INCLUDE,
+  })
+
+  if (drafts.length === 0) {
+    throw new AppError(400, 'NO_CANDIDATES', '저장할 대체 식단 후보가 없습니다')
+  }
+
+  if (drafts.length === 1) {
+    const confirmed = await prisma.alternateMealPlan.update({
+      where: { id: drafts[0].id },
+      data: { status: 'confirmed', confirmedBy: userId },
+      include: ALTERNATE_INCLUDE,
+    })
+    invalidateMealCache(orgId)
+    cache.del(CacheKey.mealDetail(mealPlanId))
+    invalidateOrgAnalyticsCache(orgId)
+    return { action: 'confirmed' as const, plans: [confirmed] }
+  }
+
+  // 2개 이상: 각 후보별로 설문 2단계 자동 생성 (status는 draft 유지)
+  for (const draft of drafts) {
+    await onAlternatePlanConfirmed(draft.id)
+  }
+  invalidateMealCache(orgId)
+  cache.del(CacheKey.mealDetail(mealPlanId))
+
+  return { action: 'surveys_created' as const, plans: drafts }
+}
+
 export async function confirmAlternatePlan(id: string, userId: string, orgId: string) {
   const plan = await prisma.alternateMealPlan.findFirst({
     where: { id },

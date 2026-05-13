@@ -11,7 +11,7 @@ import {
   exportMealPdfHandler,
   mealConditionDefaultsHandler,
 } from '../controllers/meal.controller'
-import { createAlternateHandler } from '../controllers/alternate.controller'
+import { createAlternateHandler, saveAlternatesHandler } from '../controllers/alternate.controller'
 import { allergenCheckHandler } from '../controllers/allergen.controller'
 
 const router = Router()
@@ -39,6 +39,9 @@ router.put('/:id/publish', requireRole(['nutritionist']), publishMealHandler)
 
 // T-036: 대체 식단 등록 (영양사 전용)
 router.post('/:id/alternates', requireRole(['nutritionist']), createAlternateHandler)
+
+// T-136: 대체 식단 저장 — 1개 즉시 확정 / 2개↑ 설문 자동 생성
+router.post('/:id/alternates/save', requireRole(['nutritionist']), saveAlternatesHandler)
 
 // T-035: 알레르기 대조 결과
 router.get('/:id/allergen-check', allergenCheckHandler)
