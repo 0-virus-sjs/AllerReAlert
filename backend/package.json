@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "db:migrate": "prisma migrate dev",
     "db:seed": "ts-node prisma/seed.ts",
+    "db:reset-meals": "ts-node prisma/reset-meals.ts",
     "db:studio": "prisma studio",
     "extract-allergen-keywords": "ts-node scripts/extract-allergen-keywords.ts",
     "build-price-catalog": "ts-node scripts/build-price-catalog.ts",
