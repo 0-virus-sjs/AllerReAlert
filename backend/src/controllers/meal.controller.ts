@@ -10,6 +10,7 @@ import {
   getMealPlanById,
 } from '../services/meal/meal.service'
 import { generateMealPdf } from '../services/meal/pdf.service'
+import { getMealConditionDefaults } from '../services/meal/nutrition-defaults.service'
 import { sendSuccess } from '../middlewares/response'
 
 const dateRegex    = /^\d{4}-\d{2}-\d{2}$/
@@ -133,6 +134,18 @@ export async function publishMealHandler(req: Request, res: Response, next: Next
 
     const plan = await publishMealPlan(id, orgId, scheduledAt)
     sendSuccess(res, plan)
+  } catch (err) {
+    next(err)
+  }
+}
+
+// ── T-129: GET /meals/conditions/defaults ────────────
+
+export async function mealConditionDefaultsHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { orgId } = req.user!
+    const data = await getMealConditionDefaults(orgId)
+    sendSuccess(res, data)
   } catch (err) {
     next(err)
   }
