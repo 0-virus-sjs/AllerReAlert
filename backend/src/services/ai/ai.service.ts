@@ -32,6 +32,8 @@ export interface GenerateMealPlanInput {
   // T-130
   nutrients?:       NutrientItem[]
   priceConstraint?: PriceConstraint
+  // T-145
+  includeWeekends?: boolean
 }
 
 // ── T-065 입력 타입 ────────────────────────────────────────
@@ -67,6 +69,8 @@ export interface MealPlanGenerationContext {
   nutrients?: NutrientItem[]
   perMealPrice?: number
   priceCatalogContext?: string
+  // T-145
+  includeWeekends?: boolean
 }
 
 // ── Step 8: 조직 정보 + NEIS 이력 조회 ────────────────────
@@ -121,6 +125,7 @@ export async function buildMealPlanGenerationContext(
     nutrients:          input.nutrients,
     perMealPrice,
     priceCatalogContext,
+    includeWeekends: input.includeWeekends ?? false,
   }
 }
 
@@ -142,6 +147,7 @@ export async function generateMealPlanWithAI(
     nutrients:           ctx.nutrients,
     perMealPrice:        ctx.perMealPrice,
     priceCatalogContext: ctx.priceCatalogContext,
+    includeWeekends:     ctx.includeWeekends,
   })
 
   const provider = getAIProvider()
