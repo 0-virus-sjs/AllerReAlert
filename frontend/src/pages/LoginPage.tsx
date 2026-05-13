@@ -5,17 +5,17 @@ import { useAuthStore } from '../stores/auth.store'
 import { authApi } from '../services/auth.api'
 import type { UserRole } from '../types/auth'
 
-const ROLE_TABS: { key: UserRole; label: string }[] = [
-  { key: 'student',      label: '학생' },
-  { key: 'staff',        label: '교직원' },
-  { key: 'guardian',     label: '보호자' },
-  { key: 'nutritionist', label: '영양사' },
+const ROLE_TABS: { key: UserRole; label: string; allowedRoles: UserRole[] }[] = [
+  { key: 'student',      label: '학생',   allowedRoles: ['student'] },
+  { key: 'staff',        label: '교직원', allowedRoles: ['staff'] },
+  { key: 'guardian',     label: '보호자', allowedRoles: ['guardian'] },
+  { key: 'nutritionist', label: '영양사', allowedRoles: ['nutritionist', 'admin'] },
 ]
 
 export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { setAuth } = useAuthStore()
+  const { setAuth, clearAuth } = useAuthStore()
 
   const signupSuccess = (location.state as { signupSuccess?: boolean } | null)?.signupSuccess ?? false
 
@@ -37,7 +37,17 @@ export function LoginPage() {
     setLoading(true)
     try {
       const { data } = await authApi.login(email.trim(), password)
-      setAuth(data.data.accessToken, data.data.user)
+      const user = data.data.user
+
+      // T-143: 로그인 응답 직후 탭-역할 매핑 검증
+      const selectedTab = ROLE_TABS.find((t) => t.key === role)!
+      if (!selectedTab.allowedRoles.includes(user.role)) {
+        clearAuth()
+        setError('이 탭에서 로그인할 수 없는 계정입니다.')
+        return
+      }
+
+      setAuth(data.data.accessToken, user)
       navigate('/', { replace: true })
     } catch (err: unknown) {
       const msg =
