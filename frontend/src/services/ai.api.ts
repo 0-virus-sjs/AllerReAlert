@@ -2,17 +2,33 @@ import { api } from './api'
 
 interface ApiOk<T> { success: boolean; data: T }
 
-// ── T-064: 식단 생성 요청 ──────────────────────────────────
+// ── T-064 / T-130: 식단 생성 요청 ────────────────────────
+
+export interface NutrientItem {
+  key:    string
+  label:  string
+  target: number
+  unit:   string
+  mode:   'absolute' | 'percent_of_energy'
+}
+
+export interface PriceConstraint {
+  period:      'month' | 'week' | 'day'
+  aggregation: 'avg' | 'total'
+  value:       number
+}
 
 export interface GenerateMealPlanInput {
-  period:        { from: string; to: string }
-  budget?:       number
-  calorieTarget?: { min: number; max: number }
-  proteinMin?:   number
-  preferences?:  string[]
-  excludes?:     string[]
-  neisAtptCode?: string
-  neisSchulCode?: string
+  period:           { from: string; to: string }
+  budget?:          number
+  calorieTarget?:   { min: number; max: number }
+  proteinMin?:      number
+  preferences?:     string[]
+  excludes?:        string[]
+  neisAtptCode?:    string
+  neisSchulCode?:   string
+  nutrients?:       NutrientItem[]
+  priceConstraint?: PriceConstraint
 }
 
 export interface GeneratedPlanSummary {
