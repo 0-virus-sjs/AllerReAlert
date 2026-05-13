@@ -3,16 +3,18 @@ import { Alert, Badge, Button, Card, Col, Form, Row, Spinner } from 'react-boots
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { getMealPlanGenerationJob, startMealPlanGeneration } from '../services/ai.api'
-import type { GenerateMealPlanJob, GeneratedPlanSummary, NutrientItem, PriceConstraint } from '../services/ai.api'
-import { fetchMealConditionDefaults } from '../services/meals.api'
+import type { GenerateMealPlanJob, NutrientItem, PriceConstraint } from '../services/ai.api'
+import { fetchMealConditionDefaults, getMealById, updateMeal } from '../services/meals.api'
 import { searchNeisSchools } from '../services/neis.api'
 import type { NeisSchool } from '../services/neis.api'
 import { userApi } from '../services/user.api'
+import { GeneratedMealGrid } from '../components/meal/GeneratedMealGrid'
+import type { EditablePlan } from '../components/meal/GeneratedMealGrid'
+import type { MealItemInput } from '../types/meal'
 
 // ── 상수 ──────────────────────────────────────────────────
 
 const MEAL_DAYS: Record<PriceConstraint['period'], number> = { month: 22, week: 5, day: 1 }
-const KO_DAYS = ['일', '월', '화', '수', '목', '금', '토']
 const JOB_POLL_MS = 2_000
 const JOB_POLL_MAX = 180
 
@@ -30,11 +32,6 @@ function defaultPeriod() {
     from: formatDate(new Date(t.getFullYear(), t.getMonth(), 1)),
     to:   formatDate(new Date(t.getFullYear(), t.getMonth() + 1, 0)),
   }
-}
-
-function displayDate(s: string) {
-  const d = new Date(s)
-  return `${s} (${KO_DAYS[d.getDay()]})`
 }
 
 function apiErrorMsg(e: unknown): string {
@@ -120,10 +117,11 @@ export function AIMealPlanPage() {
   const [excludes,    setExcludes]    = useState('')
 
   // 실행 상태
-  const [loading,   setLoading]   = useState(false)
-  const [error,     setError]     = useState<string | null>(null)
-  const [result,    setResult]    = useState<GeneratedPlanSummary[] | null>(null)
-  const [jobStatus, setJobStatus] = useState<GenerateMealPlanJob | null>(null)
+  const [loading,       setLoading]       = useState(false)
+  const [error,         setError]         = useState<string | null>(null)
+  const [jobStatus,     setJobStatus]     = useState<GenerateMealPlanJob | null>(null)
+  const [editablePlans, setEditablePlans] = useState<EditablePlan[]>([])
+  const [saving,        setSaving]        = useState(false)
 
   // ── API 쿼리 ──────────────────────────────────────────
 
@@ -224,21 +222,58 @@ export function AIMealPlanPage() {
   async function handleGenerate() {
     if (!periodFrom || !periodTo) { setError('기간을 입력해 주세요.'); return }
     if (periodFrom > periodTo)    { setError('시작일이 종료일보다 늦습니다.'); return }
-    setError(null); setResult(null); setJobStatus(null); setLoading(true)
+    setError(null); setEditablePlans([]); setJobStatus(null); setLoading(true)
     try {
       const started = await startMealPlanGeneration(buildInput())
       for (let i = 1; i <= JOB_POLL_MAX; i++) {
         await wait(JOB_POLL_MS)
         const job = await getMealPlanGenerationJob(started.jobId)
         setJobStatus(job)
-        if (job.status === 'completed') { setResult(job.result?.mealPlans ?? []); return }
-        if (job.status === 'failed')    { throw new Error(job.error ?? 'AI 식단 생성 job이 실패했습니다.') }
+        if (job.status === 'completed') {
+          const summaries = job.result?.mealPlans ?? []
+          // 각 plan의 전체 items를 병렬 fetch → 편집 가능 상태로 초기화
+          const fullPlans = await Promise.all(summaries.map((s) => getMealById(s.id)))
+          setEditablePlans(fullPlans.map((p) => ({
+            id:    p.id,
+            date:  p.date,
+            items: p.items.map((it): MealItemInput => ({
+              category:    it.category,
+              name:        it.name,
+              ingredients: it.ingredients ?? undefined,
+              calories:    it.calories ?? undefined,
+            })),
+          })))
+          return
+        }
+        if (job.status === 'failed') { throw new Error(job.error ?? 'AI 식단 생성 job이 실패했습니다.') }
       }
       throw new Error('AI 식단 생성 상태 확인 시간이 초과됐습니다.')
     } catch (e) {
       setError(apiErrorMsg(e))
     } finally {
       setLoading(false)
+    }
+  }
+
+  function handleItemEdit(planIdx: number, itemIdx: number, updated: MealItemInput) {
+    setEditablePlans((prev) =>
+      prev.map((p, pi) =>
+        pi !== planIdx ? p : { ...p, items: p.items.map((it, ii) => (ii !== itemIdx ? it : updated)) },
+      ),
+    )
+  }
+
+  async function handleSaveAll() {
+    setSaving(true)
+    setError(null)
+    try {
+      await Promise.all(editablePlans.map((p) => updateMeal(p.id, p.items)))
+      setEditablePlans([])
+      navigate('/meals')
+    } catch (e) {
+      setError(apiErrorMsg(e))
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -447,28 +482,25 @@ export function AIMealPlanPage() {
         }
       </Button>
 
-      {/* ── 결과 ── */}
-      {result && (
+      {/* ── 결과 — 끼니별 카드 그리드 ── */}
+      {editablePlans.length > 0 && (
         <Card className="border-0 shadow-sm">
           <Card.Header className="bg-white border-bottom py-3">
             <span className="fw-semibold">생성 결과</span>
             <Badge bg="success" className="ms-2">
-              {result.length}일치 · 총 {result.reduce((s, p) => s + p.itemCount, 0)}개 메뉴
+              {editablePlans.length}일치 · 총{' '}
+              {editablePlans.reduce((s, p) => s + p.items.length, 0)}개 메뉴
             </Badge>
+            <span className="text-muted small ms-2">편집 후 최종 저장하세요</span>
           </Card.Header>
-          <div className="list-group list-group-flush">
-            {result.map((plan) => (
-              <div key={plan.id} className="list-group-item d-flex justify-content-between align-items-center py-3 px-4">
-                <span className="small">{displayDate(plan.date)}</span>
-                <Badge bg="light" text="dark" className="border">{plan.itemCount}개 메뉴</Badge>
-              </div>
-            ))}
-          </div>
-          <Card.Footer className="bg-white border-top py-3 text-end">
-            <Button variant="outline-primary" size="sm" onClick={() => navigate('/meals')}>
-              📝 식단 관리에서 확인하기
-            </Button>
-          </Card.Footer>
+          <Card.Body>
+            <GeneratedMealGrid
+              plans={editablePlans}
+              onItemEdit={handleItemEdit}
+              onSaveAll={handleSaveAll}
+              saving={saving}
+            />
+          </Card.Body>
         </Card>
       )}
     </div>

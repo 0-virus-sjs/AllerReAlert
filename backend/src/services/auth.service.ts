@@ -106,6 +106,7 @@ export async function verifyOrg(orgCode: string) {
     orgId: org.id,
     orgName: org.name,
     orgType: org.orgType,
+    gradeStructure: org.gradeStructure ?? null,
     tempToken,
   }
 }

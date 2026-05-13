@@ -4,7 +4,7 @@ import {
 } from 'react-bootstrap'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../stores/auth.store'
-import { userApi, type UserProfile, type UpdateMePayload } from '../services/user.api'
+import { userApi, type UserProfile, type UpdateMePayload, type GradeStructure } from '../services/user.api'
 import { authApi, type VerifyOrgResponse } from '../services/auth.api'
 
 const ROLE_LABEL: Record<string, string> = {
@@ -82,6 +82,7 @@ export function ProfilePage() {
       {isStudent && (
         <StudentInfoRefillModal
           show={showRefillModal}
+          gradeStructure={profile.organization.gradeStructure}
           onHide={() => setShowRefillModal(false)}
           onSaved={() => {
             setShowRefillModal(false)
@@ -291,9 +292,11 @@ function StudentInfoCard({
             {!editing
               ? <span>{profile.grade ? `${profile.grade}학년` : '-'}</span>
               : (
-                <Form.Select size="sm" value={grade} onChange={(e) => setGrade(e.target.value)} disabled={saving}>
+                <Form.Select size="sm" value={grade} onChange={(e) => { setGrade(e.target.value); setClassNo('') }} disabled={saving}>
                   <option value="">선택</option>
-                  {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n}>{n}학년</option>)}
+                  {(profile.organization.gradeStructure?.grades ?? []).map(({ grade: g }) => (
+                    <option key={g} value={g}>{g}학년</option>
+                  ))}
                 </Form.Select>
               )}
           </Col>
@@ -302,9 +305,16 @@ function StudentInfoCard({
             {!editing
               ? <span>{profile.classNo ? `${profile.classNo}반` : '-'}</span>
               : (
-                <Form.Select size="sm" value={classNo} onChange={(e) => setClassNo(e.target.value)} disabled={saving}>
+                <Form.Select size="sm" value={classNo} onChange={(e) => setClassNo(e.target.value)} disabled={saving || !grade}>
                   <option value="">선택</option>
-                  {[1,2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={String(n)}>{n}반</option>)}
+                  {(() => {
+                    const entry = profile.organization.gradeStructure?.grades.find((g) => g.grade === Number(grade))
+                    return entry
+                      ? Array.from({ length: entry.classCount }, (_, i) => i + 1).map((n) => (
+                          <option key={n} value={String(n)}>{n}반</option>
+                        ))
+                      : null
+                  })()}
                 </Form.Select>
               )}
           </Col>
@@ -462,9 +472,10 @@ function ChangeOrgModal({
 
 // ── 학생 정보 재입력 모달 (소속 변경 직후, 학생 전용) ───────
 function StudentInfoRefillModal({
-  show, onHide, onSaved,
+  show, gradeStructure, onHide, onSaved,
 }: {
   show: boolean
+  gradeStructure: GradeStructure | null
   onHide: () => void
   onSaved: () => void
 }) {
@@ -505,16 +516,25 @@ function StudentInfoRefillModal({
         <Row className="g-2 mb-2">
           <Col>
             <Form.Label className="small fw-semibold">학년</Form.Label>
-            <Form.Select size="sm" value={grade} onChange={(e) => setGrade(e.target.value)} disabled={saving}>
+            <Form.Select size="sm" value={grade} onChange={(e) => { setGrade(e.target.value); setClassNo('') }} disabled={saving}>
               <option value="">선택</option>
-              {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n}>{n}학년</option>)}
+              {(gradeStructure?.grades ?? []).map(({ grade: g }) => (
+                <option key={g} value={g}>{g}학년</option>
+              ))}
             </Form.Select>
           </Col>
           <Col>
             <Form.Label className="small fw-semibold">반</Form.Label>
-            <Form.Select size="sm" value={classNo} onChange={(e) => setClassNo(e.target.value)} disabled={saving}>
+            <Form.Select size="sm" value={classNo} onChange={(e) => setClassNo(e.target.value)} disabled={saving || !grade}>
               <option value="">선택</option>
-              {[1,2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={String(n)}>{n}반</option>)}
+              {(() => {
+                const entry = gradeStructure?.grades.find((g) => g.grade === Number(grade))
+                return entry
+                  ? Array.from({ length: entry.classCount }, (_, i) => i + 1).map((n) => (
+                      <option key={n} value={String(n)}>{n}반</option>
+                    ))
+                  : null
+              })()}
             </Form.Select>
           </Col>
         </Row>

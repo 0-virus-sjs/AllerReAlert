@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Alert, Spinner } from 'react-bootstrap'
 import { getMeals } from '../services/meals.api'
-import { createAlternatePlan, confirmAlternatePlan } from '../services/alternates.api'
-import type { MealPlan, CreateAlternateInput } from '../types/meal'
+import { createAlternatePlan, saveAlternatePlans } from '../services/alternates.api'
+import type { MealItemInput, MealPlan } from '../types/meal'
 import { AlternatePlanCard } from '../components/meal/AlternatePlanCard'
-import { CreateAlternateModal } from '../components/meal/CreateAlternateModal'
 
 function prevMonth(ym: string): string {
   const [y, m] = ym.split('-').map(Number)
@@ -17,12 +16,18 @@ function nextMonth(ym: string): string {
   return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
 }
 
+// 플랜에서 첫 번째 알레르기 항목 정보를 자동 선택 (메뉴 단위 UI 제거 대체)
+function pickAllergenTarget(plan: MealPlan) {
+  const item = plan.items.find((it) => it.allergens.length > 0)
+  if (!item) return null
+  return { replacesItemId: item.id, targetAllergenId: item.allergens[0].allergen.id }
+}
+
 export function AlternateMealPage() {
-  const todayStr  = new Date().toISOString().slice(0, 7)
-  const [month,      setMonth]      = useState(todayStr)
-  const [targetPlan, setTargetPlan] = useState<MealPlan | null>(null)
-  const [confirmingId, setConfirmingId] = useState<string | null>(null)
-  const [msg,        setMsg]        = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const todayStr = new Date().toISOString().slice(0, 7)
+  const [month,        setMonth]        = useState(todayStr)
+  const [savingPlanId, setSavingPlanId] = useState<string | null>(null)
+  const [msg,          setMsg]          = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const queryClient = useQueryClient()
 
   const { data: plans = [], isLoading } = useQuery({
@@ -36,36 +41,46 @@ export function AlternateMealPage() {
     p.items.some((it) => it.allergens.length > 0),
   )
 
-  const createMutation = useMutation({
-    mutationFn: (input: CreateAlternateInput) =>
-      createAlternatePlan(targetPlan!.id, input),
-    onSuccess: () => {
-      setTargetPlan(null)
-      setMsg({ type: 'success', text: '대체 메뉴가 등록되었습니다.' })
-      queryClient.invalidateQueries({ queryKey: ['meals', month] })
-      setTimeout(() => setMsg(null), 3000)
-    },
-    onError: () => {
-      setMsg({ type: 'error', text: '등록에 실패했습니다. 다시 시도해주세요.' })
-    },
-  })
+  async function handleSave(planId: string, candidates: MealItemInput[]) {
+    const plan = plans.find((p) => p.id === planId)
+    if (!plan) return
 
-  const confirmMutation = useMutation({
-    mutationFn: (altPlanId: string) => {
-      setConfirmingId(altPlanId)
-      return confirmAlternatePlan(altPlanId)
-    },
-    onSuccess: () => {
-      setConfirmingId(null)
-      setMsg({ type: 'success', text: '대체 식단이 확정되었습니다.' })
+    setSavingPlanId(planId)
+    setMsg(null)
+
+    try {
+      if (candidates.length > 0) {
+        const target = pickAllergenTarget(plan)
+        if (!target) {
+          setMsg({ type: 'error', text: '알레르기 정보가 없는 식단입니다.' })
+          return
+        }
+        for (const candidate of candidates) {
+          await createAlternatePlan(planId, {
+            targetAllergenId: target.targetAllergenId,
+            items: [{
+              replacesItemId: target.replacesItemId,
+              name:      candidate.name,
+              calories:  candidate.calories,
+              nutrients: candidate.nutrients as Record<string, unknown> | undefined,
+            }],
+          })
+        }
+      }
+
+      const result = await saveAlternatePlans(planId)
+      const successText = result.action === 'confirmed'
+        ? '대체 식단이 확정되었습니다.'
+        : `설문이 ${result.plans.length}건 생성되었습니다.`
+      setMsg({ type: 'success', text: successText })
       queryClient.invalidateQueries({ queryKey: ['meals', month] })
-      setTimeout(() => setMsg(null), 3000)
-    },
-    onError: () => {
-      setConfirmingId(null)
-      setMsg({ type: 'error', text: '확정에 실패했습니다. 다시 시도해주세요.' })
-    },
-  })
+      setTimeout(() => setMsg(null), 4000)
+    } catch {
+      setMsg({ type: 'error', text: '저장에 실패했습니다. 다시 시도해주세요.' })
+    } finally {
+      setSavingPlanId(null)
+    }
+  }
 
   const [y, m] = month.split('-').map(Number)
 
@@ -74,23 +89,11 @@ export function AlternateMealPage() {
       {/* 헤더 */}
       <div className="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
         <div className="d-flex align-items-center gap-2">
-          <button
-            className="btn btn-sm btn-outline-secondary"
-            onClick={() => setMonth(prevMonth(month))}
-          >
-            ‹
-          </button>
+          <button className="btn btn-sm btn-outline-secondary" onClick={() => setMonth(prevMonth(month))}>‹</button>
           <h5 className="mb-0 fw-bold">{y}년 {m}월 대체 식단 관리</h5>
-          <button
-            className="btn btn-sm btn-outline-secondary"
-            onClick={() => setMonth(nextMonth(month))}
-          >
-            ›
-          </button>
+          <button className="btn btn-sm btn-outline-secondary" onClick={() => setMonth(nextMonth(month))}>›</button>
         </div>
-        <span className="text-muted small">
-          알레르기 유발 메뉴가 포함된 식단만 표시됩니다.
-        </span>
+        <span className="text-muted small">알레르기 유발 메뉴가 포함된 식단만 표시됩니다.</span>
       </div>
 
       {msg && (
@@ -119,23 +122,11 @@ export function AlternateMealPage() {
             <AlternatePlanCard
               key={plan.id}
               plan={plan}
-              onConfirm={(altPlanId) => confirmMutation.mutate(altPlanId)}
-              onAdd={() => setTargetPlan(plan)}
-              confirmingId={confirmingId}
+              onSave={handleSave}
+              isSaving={savingPlanId === plan.id}
             />
           ))}
         </div>
-      )}
-
-      {/* 대체 메뉴 등록 모달 */}
-      {targetPlan && (
-        <CreateAlternateModal
-          show
-          plan={targetPlan}
-          onSave={(input) => createMutation.mutate(input)}
-          onHide={() => setTargetPlan(null)}
-          isPending={createMutation.isPending}
-        />
       )}
     </div>
   )
