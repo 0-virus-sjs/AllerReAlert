@@ -1,18 +1,23 @@
 import type { AIMessage } from './provider'
 import type { NeisHistoryContext } from '../neis/neis.service'
 import { formatNeisForPrompt } from '../neis/neis.service'
+import type { NutrientItem } from './validator'
 
 // ── 입력 타입 ──────────────────────────────────────────────
 
 export interface MealPlanBuildInput {
   orgType: 'school' | 'company' | 'welfare' | 'military' | 'other'
   period: { from: Date; to: Date }
-  budget?: number                         // 원/끼
-  calorieTarget?: { min: number; max: number }
-  proteinMin?: number                     // g
+  budget?: number                         // 원/끼 (legacy)
+  calorieTarget?: { min: number; max: number }  // legacy
+  proteinMin?: number                     // g (legacy)
   preferences?: string[]
   excludes?: string[]
   neisHistory?: NeisHistoryContext        // org_type=school 만
+  // T-130
+  nutrients?: NutrientItem[]             // 동적 영양소 목표 (일 평균)
+  perMealPrice?: number                  // 1식당 단가 (원, 정규화 후)
+  priceCatalogContext?: string           // T-128 카탈로그 텍스트
 }
 
 // ── AI 출력 JSON 스키마 (T-063 Zod 검증과 1:1 대응) ───────
@@ -93,17 +98,31 @@ export function buildMealPlanMessages(input: MealPlanBuildInput): AIMessage[] {
   lines.push(`- 대상 날짜: ${weekdays.join(', ')} (${weekdays.length}일)`)
   lines.push(`- 기관 유형: ${input.orgType}`)
 
-  if (input.budget) lines.push(`- 1끼 예산: 약 ${input.budget.toLocaleString()}원`)
+  // 단가 제약: T-130 perMealPrice 우선, 없으면 legacy budget
+  const effectiveBudget = input.perMealPrice ?? input.budget
+  if (effectiveBudget) lines.push(`- 1끼 예산: 약 ${effectiveBudget.toLocaleString()}원`)
 
-  if (input.calorieTarget) {
-    lines.push(`- 칼로리 목표: ${input.calorieTarget.min}~${input.calorieTarget.max} kcal/끼`)
+  // 영양소 목표: T-130 nutrients 우선, 없으면 legacy calorieTarget/proteinMin
+  if (input.nutrients && input.nutrients.length > 0) {
+    lines.push(`- 구성: 밥(rice) 1, 국(soup) 1, 반찬(side) 2~3, 후식(dessert) 0~1`)
+    lines.push(``)
+    lines.push(`### 영양소 목표 (1식 기준, 일 평균 제공량)`)
+    for (const n of input.nutrients) {
+      if (n.mode === 'percent_of_energy') {
+        lines.push(`- ${n.label}: ${n.target}% (에너지 비율)`)
+      } else {
+        lines.push(`- ${n.label}: ${n.target} ${n.unit}`)
+      }
+    }
   } else {
-    lines.push(`- 칼로리 목표: 600~750 kcal/끼 (성인 기준)`)
+    if (input.calorieTarget) {
+      lines.push(`- 칼로리 목표: ${input.calorieTarget.min}~${input.calorieTarget.max} kcal/끼`)
+    } else {
+      lines.push(`- 칼로리 목표: 600~750 kcal/끼 (성인 기준)`)
+    }
+    if (input.proteinMin) lines.push(`- 단백질 최소: ${input.proteinMin}g/끼`)
+    lines.push(`- 구성: 밥(rice) 1, 국(soup) 1, 반찬(side) 2~3, 후식(dessert) 0~1`)
   }
-
-  if (input.proteinMin) lines.push(`- 단백질 최소: ${input.proteinMin}g/끼`)
-
-  lines.push(`- 구성: 밥(rice) 1, 국(soup) 1, 반찬(side) 2~3, 후식(dessert) 0~1`)
 
   if (input.preferences?.length) {
     lines.push(`- 선호 식재료/조리법: ${input.preferences.join(', ')}`)
@@ -111,6 +130,13 @@ export function buildMealPlanMessages(input: MealPlanBuildInput): AIMessage[] {
 
   if (input.excludes?.length) {
     lines.push(`- 제외 식재료: ${input.excludes.join(', ')}`)
+  }
+
+  // T-128 단가 카탈로그 — 단가 제약 있을 때만 포함
+  if (effectiveBudget && input.priceCatalogContext) {
+    lines.push(``)
+    lines.push(`### 메뉴별 참고 단가 카탈로그 (예산 준수 참고용)`)
+    lines.push(input.priceCatalogContext)
   }
 
   // NEIS 이력 — school 기관만 포함

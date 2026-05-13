@@ -9,6 +9,7 @@ import {
   deleteMealHandler,
   publishMealHandler,
   exportMealPdfHandler,
+  mealConditionDefaultsHandler,
 } from '../controllers/meal.controller'
 import { createAlternateHandler } from '../controllers/alternate.controller'
 import { allergenCheckHandler } from '../controllers/allergen.controller'
@@ -18,6 +19,9 @@ router.use(authenticate)
 
 // T-047: 식단 PDF 다운로드 (전 역할) — /:id 보다 먼저 등록해야 shadow 방지
 router.get('/export', exportMealPdfHandler)
+
+// T-129: 식단 생성 조건 기본값 (영양사 전용) — /:id 보다 먼저 등록
+router.get('/conditions/defaults', requireRole(['nutritionist']), mealConditionDefaultsHandler)
 
 // T-034: 식단 목록/단건 조회 (전 역할)
 router.get('/',    listMealsHandler)
