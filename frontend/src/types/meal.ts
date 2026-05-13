@@ -69,5 +69,6 @@ export interface CreateAlternateInput {
     replacesItemId: string
     name: string
     calories?: number
+    nutrients?: Record<string, unknown>
   }>
 }

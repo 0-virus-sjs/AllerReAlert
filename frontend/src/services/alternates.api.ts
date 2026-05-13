@@ -18,3 +18,10 @@ export async function confirmAlternatePlan(id: string): Promise<AlternatePlan> {
   const { data } = await api.put<ApiOk<AlternatePlan>>(`/alternates/${id}/confirm`)
   return data.data
 }
+
+interface SaveResult { action: 'confirmed' | 'surveys_created'; plans: AlternatePlan[] }
+
+export async function saveAlternatePlans(mealPlanId: string): Promise<SaveResult> {
+  const { data } = await api.post<ApiOk<SaveResult>>(`/meals/${mealPlanId}/alternates/save`)
+  return data.data
+}
