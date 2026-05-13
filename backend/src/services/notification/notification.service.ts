@@ -52,6 +52,17 @@ export interface NotificationSettings {
   quietHoursEnd?: string
 }
 
+export async function getNotificationSettings(userId: string): Promise<NotificationSettings> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { groupInfo: true },
+  })
+  if (!user) throw new AppError(404, 'NOT_FOUND', '사용자를 찾을 수 없습니다')
+
+  const prev = (user.groupInfo as Record<string, unknown> | null) ?? {}
+  return ((prev.notificationSettings as NotificationSettings) ?? {})
+}
+
 export async function updateNotificationSettings(userId: string, settings: NotificationSettings) {
   const user = await prisma.user.findUnique({
     where: { id: userId },

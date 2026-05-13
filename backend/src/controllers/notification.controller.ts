@@ -4,6 +4,7 @@ import {
   listNotifications,
   markAsRead,
   markAllAsRead,
+  getNotificationSettings,
   updateNotificationSettings,
   subscribePush,
 } from '../services/notification/notification.service'
@@ -51,6 +52,15 @@ const settingsSchema = z.object({
   quietHoursStart: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   quietHoursEnd:   z.string().regex(/^\d{2}:\d{2}$/).optional(),
 })
+
+export async function getSettingsHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await getNotificationSettings(req.user!.sub)
+    sendSuccess(res, result)
+  } catch (err) {
+    next(err)
+  }
+}
 
 export async function updateSettingsHandler(req: Request, res: Response, next: NextFunction) {
   try {

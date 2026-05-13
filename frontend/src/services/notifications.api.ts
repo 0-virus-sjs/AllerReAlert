@@ -30,6 +30,9 @@ export const notificationsApi = {
   markAllRead: () =>
     api.put<ApiWrap<{ updated: number }>>('/notifications/read-all'),
 
+  getSettings: () =>
+    api.get<ApiWrap<{ channels?: ('email' | 'push')[]; quietHoursStart?: string; quietHoursEnd?: string }>>('/notifications/settings'),
+
   updateSettings: (settings: { channels?: ('email' | 'push')[]; quietHoursStart?: string; quietHoursEnd?: string }) =>
     api.put('/notifications/settings', settings),
 
