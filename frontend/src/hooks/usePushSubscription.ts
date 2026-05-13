@@ -54,7 +54,8 @@ export function usePushSubscription() {
       })
 
       setStatus('subscribed')
-    } catch {
+    } catch (err) {
+      console.error('[T-140] 웹 푸시 구독 실패:', err)
       setStatus('default')
     }
   }

@@ -3,7 +3,15 @@
 
 self.addEventListener('push', (event) => {
   if (!event.data) return
-  const { title, body, data = {} } = event.data.json()
+
+  let title, body, data = {}
+  try {
+    ;({ title, body, data = {} } = event.data.json())
+  } catch {
+    // JSON 파싱 실패 시 raw text로 fallback
+    title = 'AllerReAlert 알림'
+    body  = event.data.text()
+  }
 
   event.waitUntil(
     self.registration.showNotification(title, {

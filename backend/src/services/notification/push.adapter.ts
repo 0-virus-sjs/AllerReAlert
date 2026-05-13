@@ -32,17 +32,22 @@ export const pushAdapter: NotificationProvider = {
       data:  payload.data ?? {},
     })
 
+    logger.debug({ userId: payload.userId, endpoint: endpoint.slice(0, 40) }, '[T-140] 웹 푸시 발송 시도')
+
     try {
       await webpush.sendNotification({ endpoint, keys: { p256dh, auth } }, message)
       logger.info({ userId: payload.userId }, '웹 푸시 발송 완료')
     } catch (err: unknown) {
-      const status = (err as { statusCode?: number }).statusCode
+      const e = err as { statusCode?: number; body?: string; headers?: unknown }
+      const status = e.statusCode
       if (status === 410 || status === 404) {
-        // 구독 만료 — 호출자가 DB에서 구독 삭제 처리
-        logger.warn({ userId: payload.userId, status }, '웹 푸시 구독 만료 (410/404)')
+        logger.warn({ userId: payload.userId, status, endpoint: endpoint.slice(0, 40) }, '[T-140] 웹 푸시 구독 만료 (410/404) — 구독 삭제 예정')
         throw Object.assign(new Error('PUSH_SUBSCRIPTION_EXPIRED'), { expired: true })
       }
-      logger.error({ err, userId: payload.userId }, '웹 푸시 발송 실패')
+      logger.error(
+        { err, status, body: e.body, userId: payload.userId, endpoint: endpoint.slice(0, 40) },
+        '[T-140] 웹 푸시 발송 실패 — 상태 코드 및 응답 본문 확인',
+      )
       throw err
     }
   },

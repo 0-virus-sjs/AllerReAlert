@@ -67,17 +67,31 @@ export async function dispatch(input: DispatchInput): Promise<void> {
   }
 
   // 채널별 발송 (실패해도 다른 채널 계속 시도)
-  const jobs = [
-    channels.includes('email') ? emailAdapter.send(payload, recipient) : null,
-    channels.includes('push') && recipient.pushSubscription ? pushAdapter.send(payload, recipient) : null,
-  ].filter(Boolean) as Promise<void>[]
+  const activeChannels: Array<{ channel: string; job: Promise<void> }> = []
+  if (channels.includes('email')) {
+    activeChannels.push({ channel: 'email', job: emailAdapter.send(payload, recipient) })
+  }
+  if (channels.includes('push') && recipient.pushSubscription) {
+    activeChannels.push({ channel: 'push', job: pushAdapter.send(payload, recipient) })
+  }
 
-  const results = await Promise.allSettled(jobs)
-  results.forEach((r, i) => {
+  const results = await Promise.allSettled(activeChannels.map((c) => c.job))
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i]
+    const ch = activeChannels[i].channel
     if (r.status === 'rejected') {
-      logger.error({ err: r.reason, userId: input.userId, channelIdx: i }, '채널 발송 실패')
+      const err = r.reason as Error & { expired?: boolean }
+      if (ch === 'push' && err.expired && recipient.pushSubscription) {
+        // 만료된 구독 DB에서 삭제 (T-140: 410/404 자동 정리)
+        await prisma.pushSubscription.deleteMany({
+          where: { userId: input.userId, endpoint: recipient.pushSubscription.endpoint },
+        }).catch((e) => logger.warn({ e, userId: input.userId }, '만료 구독 삭제 실패'))
+        logger.info({ userId: input.userId }, '만료된 웹 푸시 구독 삭제 완료')
+      } else {
+        logger.error({ err: r.reason, userId: input.userId, channel: ch }, '채널 발송 실패')
+      }
     }
-  })
+  }
 }
 
 /**

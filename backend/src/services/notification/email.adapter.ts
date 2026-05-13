@@ -24,7 +24,9 @@ export const emailAdapter: NotificationProvider = {
 
     const from = process.env.EMAIL_FROM ?? 'AllerReAlert <noreply@allerrealert.kr>'
 
-    const { error } = await getClient().emails.send({
+    logger.debug({ userId: payload.userId, to: recipient.email, from, subject: payload.title }, '[T-140] 이메일 발송 시도')
+
+    const { data, error } = await getClient().emails.send({
       from,
       to: [recipient.email],
       subject: payload.title,
@@ -32,11 +34,14 @@ export const emailAdapter: NotificationProvider = {
     })
 
     if (error) {
-      logger.error({ error, userId: payload.userId }, '이메일 발송 실패')
+      logger.error(
+        { resendError: error, errorName: (error as { name?: string }).name, userId: payload.userId, from, to: recipient.email },
+        '[T-140] 이메일 발송 실패 — Resend 오류 상세',
+      )
       throw new Error(`Resend 오류: ${error.message}`)
     }
 
-    logger.info({ userId: payload.userId, email: recipient.email }, '이메일 발송 완료')
+    logger.info({ userId: payload.userId, email: recipient.email, messageId: data?.id }, '이메일 발송 완료')
   },
 }
 
