@@ -62,3 +62,20 @@ export async function exportMealPdf(month: string): Promise<void> {
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
 }
+
+// T-141: 월간 식단 xlsx 다운로드
+export async function exportMealXlsx(month: string): Promise<void> {
+  const response = await api.get('/meals/export/xlsx', {
+    params: { month },
+    responseType: 'blob',
+  })
+  const mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  const url = URL.createObjectURL(new Blob([response.data as BlobPart], { type: mime }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `meal-plan-${month}.xlsx`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}

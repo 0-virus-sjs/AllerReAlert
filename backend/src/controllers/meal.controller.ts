@@ -10,6 +10,7 @@ import {
   getMealPlanById,
 } from '../services/meal/meal.service'
 import { generateMealPdf } from '../services/meal/pdf.service'
+import { generateMealXlsx } from '../services/meal/xlsx.service'
 import { getMealConditionDefaults } from '../services/meal/nutrition-defaults.service'
 import { sendSuccess } from '../middlewares/response'
 
@@ -168,6 +169,22 @@ export async function exportMealPdfHandler(req: Request, res: Response, next: Ne
     res.setHeader('Content-Type', 'application/pdf')
     res.setHeader('Content-Disposition', `attachment; filename="meal-${month}.pdf"`)
     res.send(pdfBuffer)
+  } catch (err) {
+    next(err)
+  }
+}
+
+// T-141: 월간 식단 xlsx 다운로드
+export async function exportMealXlsxHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { month } = exportQuerySchema.parse(req.query)
+    const { orgId, sub: userId } = req.user!
+
+    const xlsxBuffer = await generateMealXlsx({ orgId, month, userId })
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    res.setHeader('Content-Disposition', `attachment; filename="meal-${month}.xlsx"`)
+    res.send(xlsxBuffer)
   } catch (err) {
     next(err)
   }
