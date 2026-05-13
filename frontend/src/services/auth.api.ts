@@ -6,10 +6,20 @@ export interface LoginResponse {
   user: AuthUser
 }
 
+export interface GradeEntry {
+  grade: number
+  classCount: number
+}
+
+export interface GradeStructure {
+  grades: GradeEntry[]
+}
+
 export interface VerifyOrgResponse {
   orgId: string
   orgName: string
   orgType: string
+  gradeStructure: GradeStructure | null
   tempToken: string
 }
 

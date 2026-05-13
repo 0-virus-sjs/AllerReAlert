@@ -230,21 +230,30 @@ function StepRegister({ org, onBack }: Step2Props) {
       </Form.Group>
 
       {/* 역할별 추가 필드 */}
-      {role === 'student' && (
+      {role === 'student' && org.gradeStructure && (
         <>
           <Row className="g-2 mb-2">
             <Col>
               <Form.Label className="small fw-semibold">학년</Form.Label>
-              <Form.Select size="sm" value={grade} onChange={(e) => setGrade(e.target.value)} disabled={loading}>
+              <Form.Select size="sm" value={grade} onChange={(e) => { setGrade(e.target.value); setClassNo('') }} disabled={loading}>
                 <option value="">선택</option>
-                {[1,2,3,4,5,6,7,8,9,10,11,12].map(n => <option key={n} value={n}>{n}학년</option>)}
+                {org.gradeStructure.grades.map(({ grade: g }) => (
+                  <option key={g} value={g}>{g}학년</option>
+                ))}
               </Form.Select>
             </Col>
             <Col>
               <Form.Label className="small fw-semibold">반</Form.Label>
-              <Form.Select size="sm" value={classNo} onChange={(e) => setClassNo(e.target.value)} disabled={loading}>
+              <Form.Select size="sm" value={classNo} onChange={(e) => setClassNo(e.target.value)} disabled={loading || !grade}>
                 <option value="">선택</option>
-                {[1,2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={String(n)}>{n}반</option>)}
+                {(() => {
+                  const entry = org.gradeStructure!.grades.find((g) => g.grade === Number(grade))
+                  return entry
+                    ? Array.from({ length: entry.classCount }, (_, i) => i + 1).map((n) => (
+                        <option key={n} value={String(n)}>{n}반</option>
+                      ))
+                    : null
+                })()}
               </Form.Select>
             </Col>
           </Row>
