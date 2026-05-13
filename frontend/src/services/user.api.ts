@@ -23,7 +23,6 @@ export interface UserProfile {
   phone: string | null
   grade: number | null
   classNo: string | null
-  studentCode: string | null
   linkCode: string | null
   groupInfo: Record<string, unknown> | null
   consentedAt: string | null
@@ -37,7 +36,6 @@ export interface UpdateMePayload {
   phone?: string
   grade?: number
   classNo?: string
-  studentCode?: string
 }
 
 export interface ChangeOrgResponse {

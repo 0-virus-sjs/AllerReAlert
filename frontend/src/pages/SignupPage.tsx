@@ -98,7 +98,6 @@ function StepRegister({ org, onBack }: Step2Props) {
   // 역할별 추가 필드
   const [grade, setGrade] = useState('')
   const [classNo, setClassNo] = useState('')
-  const [studentCode, setStudentCode] = useState('')
   const [gender, setGender] = useState<'' | 'male' | 'female'>('')
   const [certCode, setCertCode] = useState('')
   // 동의
@@ -128,7 +127,6 @@ function StepRegister({ org, onBack }: Step2Props) {
     if (role === 'student') {
       if (!grade) { setError('학년을 선택하세요'); return }
       if (!classNo) { setError('반을 선택하세요'); return }
-      if (!studentCode.trim()) { setError('학번을 입력하세요'); return }
       if (!gender) { setError('성별을 선택하세요'); return }
     }
     if (!privacyAgreed) { setError('개인정보 수집·이용에 동의해야 합니다'); return }
@@ -147,7 +145,6 @@ function StepRegister({ org, onBack }: Step2Props) {
         ...(role === 'student' && {
           grade: Number(grade),
           classNo,
-          studentCode: studentCode.trim(),
           gender: gender as 'male' | 'female',
         }),
         privacyAgreed: true,
@@ -257,17 +254,7 @@ function StepRegister({ org, onBack }: Step2Props) {
             </Col>
           </Row>
           <Row className="g-2 mb-3">
-            <Col xs={7}>
-              <Form.Label className="small fw-semibold">학번</Form.Label>
-              <Form.Control
-                size="sm"
-                placeholder="예: 20250123"
-                value={studentCode}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setStudentCode(e.target.value)}
-                disabled={loading}
-              />
-            </Col>
-            <Col xs={5}>
+            <Col xs={12}>
               <Form.Label className="small fw-semibold">성별</Form.Label>
               <Form.Select
                 size="sm"

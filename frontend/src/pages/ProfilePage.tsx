@@ -233,16 +233,14 @@ function StudentInfoCard({
   const [editing, setEditing] = useState(false)
   const [grade, setGrade] = useState<string>(profile.grade ? String(profile.grade) : '')
   const [classNo, setClassNo] = useState(profile.classNo ?? '')
-  const [studentCode, setStudentCode] = useState(profile.studentCode ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const missing = !profile.grade || !profile.classNo || !profile.studentCode
+  const missing = !profile.grade || !profile.classNo
 
   function startEdit() {
     setGrade(profile.grade ? String(profile.grade) : '')
     setClassNo(profile.classNo ?? '')
-    setStudentCode(profile.studentCode ?? '')
     setError(null)
     setEditing(true)
   }
@@ -250,10 +248,9 @@ function StudentInfoCard({
   async function handleSave() {
     if (!grade) { setError('학년을 선택하세요'); return }
     if (!classNo) { setError('반을 선택하세요'); return }
-    if (!studentCode.trim()) { setError('학번을 입력하세요'); return }
     setSaving(true); setError(null)
     try {
-      await onSave({ grade: Number(grade), classNo, studentCode: studentCode.trim() })
+      await onSave({ grade: Number(grade), classNo })
       setEditing(false)
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: { message?: string } } } })
@@ -282,7 +279,7 @@ function StudentInfoCard({
       <Card.Body>
         {missing && !editing && (
           <Alert variant="warning" className="py-2 small mb-3">
-            학년·반·학번 정보가 비어 있습니다. 편집 버튼으로 입력해주세요.
+            학년·반 정보가 비어 있습니다. 편집 버튼으로 입력해주세요.
           </Alert>
         )}
         {error && <Alert variant="danger" className="py-2 small">{error}</Alert>}
@@ -316,20 +313,6 @@ function StudentInfoCard({
                       : null
                   })()}
                 </Form.Select>
-              )}
-          </Col>
-          <Col xs={12}>
-            <small className="text-muted d-block mb-1">학번</small>
-            {!editing
-              ? <span>{profile.studentCode ?? '-'}</span>
-              : (
-                <Form.Control
-                  size="sm"
-                  placeholder="예: 20250123"
-                  value={studentCode}
-                  onChange={(e) => setStudentCode(e.target.value)}
-                  disabled={saving}
-                />
               )}
           </Col>
         </Row>
@@ -481,18 +464,16 @@ function StudentInfoRefillModal({
 }) {
   const [grade, setGrade] = useState('')
   const [classNo, setClassNo] = useState('')
-  const [studentCode, setStudentCode] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function handleSave() {
     if (!grade) { setError('학년을 선택하세요'); return }
     if (!classNo) { setError('반을 선택하세요'); return }
-    if (!studentCode.trim()) { setError('학번을 입력하세요'); return }
     setSaving(true); setError(null)
     try {
-      await userApi.updateMe({ grade: Number(grade), classNo, studentCode: studentCode.trim() })
-      setGrade(''); setClassNo(''); setStudentCode('')
+      await userApi.updateMe({ grade: Number(grade), classNo })
+      setGrade(''); setClassNo('')
       onSaved()
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: { message?: string } } } })
@@ -510,7 +491,7 @@ function StudentInfoRefillModal({
       </Modal.Header>
       <Modal.Body>
         <p className="small text-muted mb-3">
-          소속이 변경되어 학년·반·학번을 다시 입력해야 합니다.
+          소속이 변경되어 학년·반을 다시 입력해야 합니다.
         </p>
         {error && <Alert variant="danger" className="py-2 small">{error}</Alert>}
         <Row className="g-2 mb-2">
@@ -538,17 +519,7 @@ function StudentInfoRefillModal({
             </Form.Select>
           </Col>
         </Row>
-        <Form.Group className="mb-3">
-          <Form.Label className="small fw-semibold">학번</Form.Label>
-          <Form.Control
-            size="sm"
-            placeholder="예: 20250123"
-            value={studentCode}
-            onChange={(e) => setStudentCode(e.target.value)}
-            disabled={saving}
-          />
-        </Form.Group>
-        <Button variant="primary" className="w-100" onClick={handleSave} disabled={saving}>
+        <Button variant="primary" className="w-100 mt-3" onClick={handleSave} disabled={saving}>
           {saving ? <><Spinner size="sm" className="me-2" />저장 중…</> : '저장'}
         </Button>
       </Modal.Body>
