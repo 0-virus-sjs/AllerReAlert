@@ -33,7 +33,7 @@ export function Header({ onMenuToggle }: Props) {
   }
 
   return (
-    <Navbar bg="white" className="border-bottom px-3 py-2 d-flex align-items-center">
+    <Navbar bg="white" className="border-bottom px-3 py-2 fixed-top shadow-sm">
       {/* 모바일 햄버거 */}
       <button
         className="btn btn-light d-md-none me-2"
@@ -43,9 +43,10 @@ export function Header({ onMenuToggle }: Props) {
         ☰
       </button>
 
-      <span className="fw-semibold d-md-none text-primary">🍽️ AllerReAlert</span>
+      {/* 로고 — 모바일에서는 항상, 데스크톱에서도 표시 (사이드바에서 이동) */}
+      <span className="fw-bold text-primary fs-6 me-auto">🍽️ AllerReAlert</span>
 
-      <Nav className="ms-auto d-flex align-items-center gap-3">
+      <Nav className="d-flex align-items-center gap-3">
         {/* 알림 아이콘 */}
         <button
           className="btn btn-light position-relative"
