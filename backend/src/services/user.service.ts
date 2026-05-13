@@ -14,7 +14,6 @@ const userSelect = {
   groupInfo: true,
   grade: true,           // T-123 학생 학년
   classNo: true,         // T-123 학생 반
-  studentCode: true,     // T-123 학생 학번
   linkCode: true,        // 학생 전용 보호자 연동코드 (T-100)
   consentedAt: true,
   guardianConsentRequired: true,
@@ -38,7 +37,6 @@ export interface UpdateMeInput {
   // T-125: 학생 기본 정보 — role=student일 때만 반영, 다른 role은 무시
   grade?: number
   classNo?: string
-  studentCode?: string
 }
 
 export async function updateMe(userId: string, input: UpdateMeInput) {
@@ -58,7 +56,7 @@ export async function updateMe(userId: string, input: UpdateMeInput) {
 
   const isStudent = user.role === 'student'
   const studentFieldChanged = isStudent && (
-    input.grade !== undefined || input.classNo !== undefined || input.studentCode !== undefined
+    input.grade !== undefined || input.classNo !== undefined
   )
 
   const updated = await prisma.user.update({
@@ -69,12 +67,11 @@ export async function updateMe(userId: string, input: UpdateMeInput) {
       ...(groupInfo !== undefined && { groupInfo: groupInfo as Prisma.InputJsonValue }),
       ...(isStudent && input.grade !== undefined && { grade: input.grade }),
       ...(isStudent && input.classNo !== undefined && { classNo: input.classNo }),
-      ...(isStudent && input.studentCode !== undefined && { studentCode: input.studentCode }),
     },
     select: userSelect,
   })
 
-  // 학생의 grade/classNo/studentCode가 바뀌면 school-stats 분포가 영향받음
+  // 학생의 grade/classNo가 바뀌면 school-stats 분포가 영향받음
   if (studentFieldChanged) invalidateOrgAnalyticsCache(user.orgId)
   return updated
 }
@@ -115,7 +112,7 @@ export async function changeOrg(userId: string, tempToken: string, ip?: string) 
       where: { id: userId },
       data: {
         orgId: newOrgId,
-        ...(isStudent && { grade: null, classNo: null, studentCode: null }),
+        ...(isStudent && { grade: null, classNo: null }),
       },
       select: userSelect,
     })
@@ -131,7 +128,6 @@ export async function changeOrg(userId: string, tempToken: string, ip?: string) 
           ...(isStudent && {
             grade: user.grade,
             classNo: user.classNo,
-            studentCode: user.studentCode,
           }),
         },
         after: { orgId: newOrgId },

@@ -97,7 +97,7 @@ async function main() {
     {
       id: 'seed-user-stu', role: 'student' as const,
       email: 'student@allerrealert.kr', name: '박학생',
-      grade: 5, classNo: '3', studentCode: '20250513', gender: 'male' as const,
+      grade: 5, classNo: '3', gender: 'male' as const,
     },
     { id: 'seed-user-grd',   role: 'guardian' as const,     email: 'guardian@allerrealert.kr',    name: '최보호자' },
   ]
@@ -115,7 +115,6 @@ async function main() {
         passwordHash: await hash('Test1234!'),
         ...('grade' in a && { grade: a.grade }),
         ...('classNo' in a && { classNo: a.classNo }),
-        ...('studentCode' in a && { studentCode: a.studentCode }),
         ...('gender' in a && { gender: a.gender }),
       },
     })

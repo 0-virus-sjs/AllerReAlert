@@ -15,7 +15,6 @@ const updateMeSchema = z.object({
   // T-125: 학생 기본 정보 (role=student일 때만 적용)
   grade: z.number().int().min(1).max(12).optional(),
   classNo: z.string().min(1).max(10).optional(),
-  studentCode: z.string().min(1).max(50).optional(),
 })
 
 const changeOrgSchema = z.object({
