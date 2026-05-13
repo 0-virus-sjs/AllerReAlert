@@ -17,6 +17,7 @@ export interface MealItem {
   id: string
   category: MealItemCategory
   name: string
+  ingredients: string | null
   calories: number | null
   allergens: MealAllergenEntry[]
 }
