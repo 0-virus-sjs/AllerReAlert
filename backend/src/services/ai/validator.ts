@@ -81,6 +81,19 @@ function buildRetryMessage(reason: string): AIMessage {
   }
 }
 
+function buildNutrientRetryMessage(reason: string): AIMessage {
+  return {
+    role:    'user',
+    content: [
+      `이전 응답이 올바르지 않습니다: ${reason}`,
+      ``,
+      `수정 방법: 각 날짜의 items 배열에서 calories 값을 조정해 하루 합계가 목표에 맞도록 하세요.`,
+      `메뉴 이름(name), 카테고리(category), allergenCodes는 변경하지 마세요.`,
+      `수정된 JSON만 출력하세요. 설명 없이 순수 JSON만.`,
+    ].join('\n'),
+  }
+}
+
 // ── 공통 재시도 엔진 ───────────────────────────────────────
 
 async function callWithValidation<T>(
@@ -129,7 +142,7 @@ async function callWithValidation<T>(
       if (attempt < maxRetries) {
         logger.warn({ attempt, postError }, '[T-063] 후처리 검증 실패 — 재요청')
         conversationMsgs.push({ role: 'assistant', content })
-        conversationMsgs.push(buildRetryMessage(postError))
+        conversationMsgs.push(buildNutrientRetryMessage(postError))
         continue
       }
       throw new Error(`AI 응답 후처리 검증 실패: ${postError}`)
@@ -195,10 +208,14 @@ function validateWeeklyNutrients(
       if (nutrient.mode === 'absolute') {
         const weekTarget = nutrient.target * days.length   // 일 평균 × 실제 급식일 수
         if (Math.abs(weekSum - weekTarget) > weekTarget * 0.1) {
+          const avgActual = weekSum / days.length
+          const gap       = nutrient.target - avgActual
+          const direction = gap > 0 ? '높여야' : '낮춰야'
           return (
             `${weekKey} 주 ${nutrient.label} 합계 ${weekSum.toFixed(1)} ${nutrient.unit}가` +
             ` 목표 ${weekTarget.toFixed(1)} ${nutrient.unit} ±10% 범위를 벗어났습니다.` +
-            ` 각 날짜의 ${nutrient.label}를 조정해주세요.`
+            ` (일 평균 ${avgActual.toFixed(1)} ${nutrient.unit} 생성됨, 목표 ${nutrient.target} ${nutrient.unit}/일)` +
+            ` 각 날짜의 items calories를 하루 평균 약 ${Math.abs(gap).toFixed(0)} ${nutrient.unit} ${direction} 합니다.`
           )
         }
       } else {

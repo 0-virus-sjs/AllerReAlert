@@ -86,6 +86,8 @@ export function buildMealPlanMessages(input: MealPlanBuildInput): AIMessage[] {
     '당신은 학교·단체 급식 전문 영양사입니다.',
     '주어진 조건에 맞는 급식 식단표를 JSON 형식으로만 출력하세요.',
     '설명, 마크다운, 코드블록 없이 순수 JSON만 반환하세요.',
+    '영양소 제약 조건은 반드시 충족해야 합니다. 일반적인 급식 상식과 다르더라도 지정된 목표를 따르세요.',
+    'JSON을 출력하기 전에 각 날짜의 items calories 합계를 직접 계산하세요. 목표와 ±10% 이상 차이나면 메뉴 calories를 조정한 후 출력하세요.',
     '알레르기 유발물질이 포함된 메뉴는 allergenCodes 배열에 해당 코드를 반드시 포함하세요.',
     '식약처 알레르기 번호 기준: 1=난류 2=우유 3=메밀 4=땅콩 5=대두 6=밀 7=고등어 8=게 9=새우 10=돼지고기 11=복숭아 12=토마토 13=아황산류 14=호두 15=닭고기 16=쇠고기 17=오징어 18=조개류 19=잣',
   ].join('\n')
@@ -106,14 +108,16 @@ export function buildMealPlanMessages(input: MealPlanBuildInput): AIMessage[] {
   if (input.nutrients && input.nutrients.length > 0) {
     lines.push(`- 구성: 밥(rice) 1, 국(soup) 1, 반찬(side) 2~3, 후식(dessert) 0~1`)
     lines.push(``)
-    lines.push(`### 영양소 목표 (1식 기준, 일 평균 제공량)`)
+    lines.push(`### 영양소 제약 조건 (반드시 충족 — 검증 후 거절됨)`)
+    lines.push(`아래 수치는 하루 전체 메뉴(items) calories 합계 기준입니다.`)
     for (const n of input.nutrients) {
       if (n.mode === 'percent_of_energy') {
-        lines.push(`- ${n.label}: ${n.target}% (에너지 비율)`)
+        lines.push(`- ${n.label}: ${n.target}% (주간 에너지 비율 기준)`)
       } else {
-        lines.push(`- ${n.label}: ${n.target} ${n.unit}`)
+        lines.push(`- ${n.label}: ${n.target} ${n.unit}/일 (하루 items calories 합계가 이 값의 ±10% 이내)`)
       }
     }
+    lines.push(`※ 출력 전 각 날짜별 calories 합계를 확인하고, 미달이면 메뉴 calories를 올려 조정하세요.`)
   } else {
     if (input.calorieTarget) {
       lines.push(`- 칼로리 목표: ${input.calorieTarget.min}~${input.calorieTarget.max} kcal/끼`)
