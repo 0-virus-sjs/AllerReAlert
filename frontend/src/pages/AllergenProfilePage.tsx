@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Alert, Badge, Spinner } from 'react-bootstrap'
+import { Badge, Spinner } from 'react-bootstrap'
+import { FlashAlert } from '../components/common/FlashAlert'
 import { getMasterAllergens, getMyAllergens, addAllergen, removeAllergen } from '../services/allergens.api'
 import type { AllergenStatus } from '../types/allergen'
 
@@ -84,9 +85,7 @@ export function AllergenProfilePage() {
       </p>
 
       {msg && (
-        <Alert variant={msg.type} className="py-2 small" dismissible onClose={() => setMsg(null)}>
-          {msg.text}
-        </Alert>
+        <FlashAlert variant={msg.type} text={msg.text} onClose={() => setMsg(null)} className="mb-3" />
       )}
 
       {isLoading ? (

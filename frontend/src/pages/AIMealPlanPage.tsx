@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Alert, Badge, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap'
+import { FlashAlert } from '../components/common/FlashAlert'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getMealPlanGenerationJob, startMealPlanGeneration } from '../services/ai.api'
@@ -473,9 +474,7 @@ export function AIMealPlanPage() {
 
       {/* ── 오류 / 진행 상태 ── */}
       {error && (
-        <Alert variant="danger" onClose={() => setError(null)} dismissible className="mb-3">
-          {error}
-        </Alert>
+        <FlashAlert variant="danger" text={error} onClose={() => setError(null)} className="mb-3" />
       )}
       {loading && jobStatus && (
         <Alert variant="info" className="mb-3">
