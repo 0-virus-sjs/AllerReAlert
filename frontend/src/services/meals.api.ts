@@ -1,7 +1,20 @@
 import { api } from './api'
 import type { MealPlan, MealItemInput } from '../types/meal'
+import type { NutrientItem } from './ai.api'
 
 interface ApiOk<T> { success: boolean; data: T }
+
+// ── T-129: 식단 생성 조건 기본값 ──────────────────────────
+
+export interface MealConditionDefaults {
+  calories:  number
+  nutrients: NutrientItem[]
+}
+
+export async function fetchMealConditionDefaults(): Promise<MealConditionDefaults> {
+  const { data } = await api.get<ApiOk<MealConditionDefaults>>('/meals/conditions/defaults')
+  return data.data
+}
 
 export async function getMeals(month: string): Promise<MealPlan[]> {
   const { data } = await api.get<ApiOk<MealPlan[]>>('/meals', { params: { month } })
