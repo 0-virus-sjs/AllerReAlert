@@ -103,13 +103,11 @@ export function AIMealPlanPage() {
   const [addUnit,      setAddUnit]      = useState('g')
   const defaultsLoaded = useRef(false)
 
-  // NEIS 학교
-  const [neisAtptCode,     setNeisAtptCode]     = useState('')
-  const [neisSchulCode,    setNeisSchulCode]     = useState('')
-  const [schoolDisplayName, setSchoolDisplayName] = useState('')
-  const [schoolQuery,      setSchoolQuery]       = useState('')
-  const [schoolResults,    setSchoolResults]     = useState<NeisSchool[]>([])
-  const [showDropdown,     setShowDropdown]      = useState(false)
+  // NEIS 학교 — profile에서 파생, 사용자가 다른 학교 선택 시 override
+  const [schoolOverride, setSchoolOverride] = useState<{ atptCode: string; schulCode: string; name: string } | null>(null)
+  const [schoolQuery,    setSchoolQuery]    = useState('')
+  const [schoolResults,  setSchoolResults]  = useState<NeisSchool[]>([])
+  const [showDropdown,   setShowDropdown]   = useState(false)
 
   // 단가 제약
   const [priceEnabled,  setPriceEnabled]  = useState(false)
@@ -151,21 +149,9 @@ export function AIMealPlanPage() {
     }
   }, [defaults])
 
-  // 영양사 소속 학교 자동 선택
+  // NEIS 학교 검색 디바운스 — 동기 setState 없이 setTimeout 콜백 안에서만 호출
   useEffect(() => {
-    if (profile?.organization) {
-      const { atptCode, schoolCode, name } = profile.organization
-      if (atptCode && schoolCode) {
-        setNeisAtptCode(atptCode)
-        setNeisSchulCode(schoolCode)
-        setSchoolDisplayName(name)
-      }
-    }
-  }, [profile])
-
-  // NEIS 학교 검색 디바운스
-  useEffect(() => {
-    if (schoolQuery.length < 2) { setSchoolResults([]); return }
+    if (schoolQuery.length < 2) return
     const timer = setTimeout(async () => {
       try {
         const res = await searchNeisSchools(schoolQuery)
@@ -178,6 +164,14 @@ export function AIMealPlanPage() {
 
   // ── 파생값 ────────────────────────────────────────────
 
+  // 소속 학교: override > profile 순으로 fallback (effect 없이 파생)
+  const neisAtptCode     = schoolOverride?.atptCode  ?? profile?.organization?.atptCode   ?? ''
+  const neisSchulCode    = schoolOverride?.schulCode ?? profile?.organization?.schoolCode ?? ''
+  const schoolDisplayName = schoolOverride?.name     ?? (profile?.organization?.atptCode && profile?.organization?.schoolCode ? profile.organization.name : '')
+
+  // 쿼리가 짧으면 결과 숨김 (동기 setState 대신 파생값으로 처리)
+  const visibleResults = schoolQuery.length >= 2 ? schoolResults : []
+
   const perMealPreview = useMemo(() => {
     const v = Number(priceValue)
     if (!priceEnabled || !v) return null
@@ -187,9 +181,7 @@ export function AIMealPlanPage() {
   // ── 핸들러 ────────────────────────────────────────────
 
   function handleSelectSchool(school: NeisSchool) {
-    setNeisAtptCode(school.atptCode)
-    setNeisSchulCode(school.schoolCode)
-    setSchoolDisplayName(school.name)
+    setSchoolOverride({ atptCode: school.atptCode, schulCode: school.schoolCode, name: school.name })
     setSchoolQuery('')
     setShowDropdown(false)
   }
@@ -359,15 +351,15 @@ export function AIMealPlanPage() {
               placeholder="다른 학교 검색 (2자 이상)"
               value={schoolQuery}
               onChange={(e) => setSchoolQuery(e.target.value)}
-              onFocus={() => schoolResults.length > 0 && setShowDropdown(true)}
+              onFocus={() => visibleResults.length > 0 && setShowDropdown(true)}
               onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
             />
-            {showDropdown && schoolResults.length > 0 && (
+            {showDropdown && visibleResults.length > 0 && (
               <div
                 className="border rounded bg-white shadow-sm position-absolute w-100 mt-1"
                 style={{ zIndex: 100, maxHeight: 200, overflowY: 'auto' }}
               >
-                {schoolResults.map((s) => (
+                {visibleResults.map((s) => (
                   <button
                     key={`${s.atptCode}-${s.schoolCode}`}
                     type="button"
