@@ -160,7 +160,7 @@ export function MealPlanPage() {
   function toggleDateSelect(ds: string) {
     setSelectedDates((prev) => {
       const next = new Set(prev)
-      next.has(ds) ? next.delete(ds) : next.add(ds)
+      if (next.has(ds)) { next.delete(ds) } else { next.add(ds) }
       return next
     })
   }
