@@ -61,6 +61,10 @@ export function MealPlanPage() {
   const [saveMsg,        setSaveMsg]        = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [view,           setView]           = useState<CalendarView>('calendar')
   const [xlsxLoading,    setXlsxLoading]    = useState(false)
+  // T-142: 선택 모드 + 일괄 공개
+  const [selectMode,     setSelectMode]     = useState(false)
+  const [selectedDates,  setSelectedDates]  = useState<Set<string>>(new Set())
+  const [bulkPublishing, setBulkPublishing] = useState(false)
 
   const queryClient = useQueryClient()
 
@@ -147,6 +151,43 @@ export function MealPlanPage() {
     }
   }
 
+  // T-142: 선택 모드 토글
+  function toggleSelectMode() {
+    setSelectMode((prev) => !prev)
+    setSelectedDates(new Set())
+  }
+
+  function toggleDateSelect(ds: string) {
+    setSelectedDates((prev) => {
+      const next = new Set(prev)
+      if (next.has(ds)) { next.delete(ds) } else { next.add(ds) }
+      return next
+    })
+  }
+
+  // T-142: 선택된 날짜 중 draft 식단만 순차 공개
+  async function handleBulkPublish() {
+    const draftPlans = plans.filter(
+      (p) => selectedDates.has(toDateStr(p.date)) && p.status === 'draft',
+    )
+    if (draftPlans.length === 0) return
+    setBulkPublishing(true)
+    try {
+      for (const plan of draftPlans) {
+        await publishMeal(plan.id)
+      }
+      queryClient.invalidateQueries({ queryKey: ['meals', month] })
+      setSaveMsg({ type: 'success', text: `${draftPlans.length}개 식단이 공개되었습니다.` })
+      setTimeout(() => setSaveMsg(null), 3000)
+    } catch {
+      setSaveMsg({ type: 'error', text: '일괄 공개에 실패했습니다.' })
+    } finally {
+      setBulkPublishing(false)
+      setSelectMode(false)
+      setSelectedDates(new Set())
+    }
+  }
+
   return (
     <div className="p-4">
       {/* ── 헤더 ─────────────────────────────────────────── */}
@@ -174,6 +215,27 @@ export function MealPlanPage() {
           >
             {xlsxLoading ? <Spinner size="sm" animation="border" /> : '📊 엑셀 저장'}
           </button>
+          {/* T-142: 선택 모드 토글 */}
+          {selectMode ? (
+            <>
+              <button
+                className="btn btn-sm btn-warning"
+                onClick={handleBulkPublish}
+                disabled={selectedDates.size === 0 || bulkPublishing}
+              >
+                {bulkPublishing
+                  ? <Spinner size="sm" animation="border" />
+                  : `일괄 공개 (${selectedDates.size})`}
+              </button>
+              <button className="btn btn-sm btn-outline-secondary" onClick={toggleSelectMode}>
+                취소
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-sm btn-outline-secondary" onClick={toggleSelectMode}>
+              선택
+            </button>
+          )}
           <button
             className="btn btn-sm btn-outline-secondary"
             onClick={() => saveMutation.mutate()}
@@ -237,7 +299,9 @@ export function MealPlanPage() {
             plans={plans}
             getDayLevel={(plan): CalendarDayLevel => {
               const hasConfirmedAlt = plan.alternatePlans.some((ap) => ap.status === 'confirmed')
-              return hasConfirmedAlt ? 'alt' : 'normal'
+              if (hasConfirmedAlt) return 'alt'
+              if (plan.status === 'draft') return 'draft'
+              return 'normal'
             }}
           />
         </div>
@@ -247,18 +311,26 @@ export function MealPlanPage() {
           style={{ overflowX: 'auto', scrollbarWidth: 'none' }}
         >
           {days.map((date) => {
-            const ds         = formatDateStr(date)
-            const isSelected = ds === selectedDate
-            const hasPlan    = plans.some((p) => toDateStr(p.date) === ds)
+            const ds          = formatDateStr(date)
+            const plan        = plans.find((p) => toDateStr(p.date) === ds)
+            const isSelected  = ds === selectedDate
+            const isDraft     = plan?.status === 'draft'
+            const isChecked   = selectedDates.has(ds)
 
             return (
               <button
                 key={ds}
-                onClick={() => selectDate(ds)}
+                onClick={() => selectMode ? toggleDateSelect(ds) : selectDate(ds)}
                 style={{
                   padding: '4px 10px 8px',
-                  border: `1.5px solid ${isSelected ? '#A8D8E8' : '#C0BBB4'}`,
-                  background: isSelected ? '#CFECF3' : '#fff',
+                  border: `1.5px solid ${
+                    selectMode && isChecked ? '#E8A820'
+                    : isSelected ? '#A8D8E8'
+                    : '#C0BBB4'
+                  }`,
+                  background: selectMode && isChecked ? '#FFFBE6'
+                    : isSelected ? '#CFECF3'
+                    : '#fff',
                   color: isSelected ? '#3A3030' : '#888',
                   fontFamily: 'IBM Plex Mono, monospace',
                   fontSize: 11,
@@ -269,7 +341,7 @@ export function MealPlanPage() {
                 }}
               >
                 {date.getDate()}({KO_DAYS[date.getDay()]})
-                {hasPlan && (
+                {plan && (
                   <span
                     style={{
                       position: 'absolute',
@@ -279,10 +351,13 @@ export function MealPlanPage() {
                       width: 4,
                       height: 4,
                       borderRadius: '50%',
-                      background: '#5DBD6A',
+                      background: isDraft ? '#E8A820' : '#5DBD6A',
                       display: 'block',
                     }}
                   />
+                )}
+                {selectMode && isChecked && (
+                  <span style={{ position: 'absolute', top: 1, right: 3, fontSize: 9, color: '#E8A820' }}>✓</span>
                 )}
               </button>
             )
