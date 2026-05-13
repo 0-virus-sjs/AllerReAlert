@@ -31,7 +31,6 @@ const NAV_ITEMS: Record<UserRole, NavItem[]> = {
     { to: '/ai',          label: 'AI 식단 생성', icon: '🤖' },
     { to: '/alternates',  label: '대체 식단',    icon: '🔄' },
     { to: '/survey-management', label: '설문 관리', icon: '📋' },
-    { to: '/analytics',   label: '수요 대시보드', icon: '📊' },
     { to: '/notifications', label: '알림',       icon: '🔔' },
   ],
   admin: [

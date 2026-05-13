@@ -13,7 +13,6 @@ import { NotificationCenterPage } from './pages/NotificationCenterPage'
 import { AIMealPlanPage } from './pages/AIMealPlanPage'
 import { SurveyPage } from './pages/SurveyPage'
 import { SurveyManagementPage } from './pages/SurveyManagementPage'
-import { AnalyticsDashboardPage } from './pages/AnalyticsDashboardPage'
 import { AdminPanelPage }         from './pages/AdminPanelPage'
 import { GuardianApprovalsPage }  from './pages/GuardianApprovalsPage'
 import { ProfilePage }            from './pages/ProfilePage'
@@ -43,7 +42,7 @@ function App() {
                 <Route element={<ProtectedRoute roles={['guardian']} />}>
                   <Route path="/children" element={<GuardianApprovalsPage />} />
                 </Route>
-                <Route path="/analytics" element={<AnalyticsDashboardPage />} />
+                <Route path="/analytics" element={<Navigate to="/" replace />} />
                 <Route path="/alternates" element={<AlternateMealPage />} />
 
                 {/* 영양사 전용 */}
