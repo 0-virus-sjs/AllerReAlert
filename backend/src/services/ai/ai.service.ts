@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { AppError } from '../../middlewares/errorHandler'
 import { invalidateMealCache, invalidateOrgAnalyticsCache } from '../../lib/cache'
-import { applyAutoTagging } from '../meal/tagging.service'
+import { applyAutoTaggingBatch, type AutoTaggingTarget } from '../meal/tagging.service'
 import { getNeisHistory, type NeisHistoryContext } from '../neis/neis.service'
 import { getAIProvider } from './index'
 import { buildMealPlanMessages } from './meal-plan-builder'
@@ -123,6 +123,7 @@ export async function saveGeneratedMealPlan(
 ): Promise<Array<{ id: string; date: string; itemCount: number }>> {
   return prisma.$transaction(async (tx) => {
     const results = []
+    const tagTargets: AutoTaggingTarget[] = []
 
     for (const day of days) {
       const [y, m, d] = day.date.split('-').map(Number)
@@ -132,27 +133,26 @@ export async function saveGeneratedMealPlan(
         data: { orgId, date, createdBy: userId },
       })
 
-      const items = await Promise.all(
-        day.items.map((item) =>
-          tx.mealItem.create({
-            data: {
-              mealPlanId: plan.id,
-              category:   item.category,
-              name:       item.name,
-              calories:   item.calories ?? undefined,
-              nutrients:  item.nutrients as Prisma.InputJsonValue | undefined,
-            },
-          }),
-        ),
-      )
+      for (const item of day.items) {
+        const created = await tx.mealItem.create({
+          data: {
+            mealPlanId: plan.id,
+            category:   item.category,
+            name:       item.name,
+            calories:   item.calories ?? undefined,
+            nutrients:  item.nutrients as Prisma.InputJsonValue | undefined,
+          },
+        })
+        tagTargets.push({ mealItemId: created.id, mealItemName: created.name })
+      }
 
-      await Promise.all(items.map((item) => applyAutoTagging(item.id, item.name, tx)))
-
-      results.push({ id: plan.id, date: day.date, itemCount: items.length })
+      results.push({ id: plan.id, date: day.date, itemCount: day.items.length })
     }
 
+    await applyAutoTaggingBatch(tagTargets, tx)
+
     return results
-  }).then((res) => {
+  }, { timeout: 30000 }).then((res) => {
     // AI 생성 식단이 영양사 캘린더·analytics에 즉시 보이도록 캐시 무효화
     invalidateMealCache(orgId)
     invalidateOrgAnalyticsCache(orgId)

@@ -1,10 +1,10 @@
 import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { cache, CacheKey, invalidateMealCache, invalidateOrgAnalyticsCache } from '../../lib/cache'
-import { applyAutoTagging } from './tagging.service'
+import { applyAutoTaggingBatch } from './tagging.service'
 import { onPublishedMealChanged } from './change-hook'
 import { AppError } from '../../middlewares/errorHandler'
-import type { MealItemCategory } from '@prisma/client'
+import type { MealItem, MealItemCategory } from '@prisma/client'
 
 export interface MealItemInput {
   category: MealItemCategory
@@ -36,23 +36,24 @@ export async function createMealPlan(input: CreateMealInput) {
       },
     })
 
-    const createdItems = await Promise.all(
-      input.items.map((item) =>
-        tx.mealItem.create({
-          data: {
-            mealPlanId: plan.id,
-            category: item.category,
-            name: item.name,
-            calories: item.calories,
-            nutrients: item.nutrients as Prisma.InputJsonValue | undefined,
-          },
-        }),
-      ),
-    )
+    const createdItems: MealItem[] = []
+    for (const item of input.items) {
+      const created = await tx.mealItem.create({
+        data: {
+          mealPlanId: plan.id,
+          category: item.category,
+          name: item.name,
+          calories: item.calories,
+          nutrients: item.nutrients as Prisma.InputJsonValue | undefined,
+        },
+      })
+      createdItems.push(created)
+    }
 
     // T-033: 각 메뉴명에 대해 알레르기 자동 태깅 (트랜잭션 내)
-    await Promise.all(
-      createdItems.map((item) => applyAutoTagging(item.id, item.name, tx)),
+    await applyAutoTaggingBatch(
+      createdItems.map((item) => ({ mealItemId: item.id, mealItemName: item.name })),
+      tx,
     )
 
     return tx.mealPlan.findUniqueOrThrow({
@@ -175,21 +176,24 @@ export async function updateMealPlan(
       // 기존 MealItems 전체 삭제 (MealItemAllergen cascade)
       await tx.mealItem.deleteMany({ where: { mealPlanId: id } })
 
-      const newItems = await Promise.all(
-        input.items.map((item) =>
-          tx.mealItem.create({
-            data: {
-              mealPlanId: id,
-              category: item.category,
-              name: item.name,
-              calories: item.calories,
-              nutrients: item.nutrients as Prisma.InputJsonValue | undefined,
-            },
-          }),
-        ),
-      )
+      const newItems: MealItem[] = []
+      for (const item of input.items) {
+        const created = await tx.mealItem.create({
+          data: {
+            mealPlanId: id,
+            category: item.category,
+            name: item.name,
+            calories: item.calories,
+            nutrients: item.nutrients as Prisma.InputJsonValue | undefined,
+          },
+        })
+        newItems.push(created)
+      }
       // T-033 자동 태깅 재적용
-      await Promise.all(newItems.map((item) => applyAutoTagging(item.id, item.name, tx)))
+      await applyAutoTaggingBatch(
+        newItems.map((item) => ({ mealItemId: item.id, mealItemName: item.name })),
+        tx,
+      )
     }
 
     const dateUpdate = input.date
