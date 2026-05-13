@@ -45,7 +45,7 @@ async function main() {
       address: '경기도 남양주시',
       atptCode: 'J10',
       schoolCode: '7652136',
-      gradeStructure: { grades: [1, 2, 3, 4, 5, 6], classesPerGrade: 4 },
+      gradeStructure: { grades: [1,2,3,4,5,6].map((g) => ({ grade: g, classCount: 4 })) },
       mealTime: { breakfast: null, lunch: '12:00', dinner: null },
     },
     {
@@ -54,7 +54,7 @@ async function main() {
       address: '경기도 남양주시',
       atptCode: 'J10',
       schoolCode: '7652138',
-      gradeStructure: { grades: [1, 2, 3], classesPerGrade: 6 },
+      gradeStructure: { grades: [1,2,3].map((g) => ({ grade: g, classCount: 6 })) },
       mealTime: { breakfast: null, lunch: '12:30', dinner: null },
     },
     {
@@ -63,7 +63,7 @@ async function main() {
       address: '경기도 남양주시',
       atptCode: 'J10',
       schoolCode: '7530771',
-      gradeStructure: { grades: [1, 2, 3], classesPerGrade: 8 },
+      gradeStructure: { grades: [1,2,3].map((g) => ({ grade: g, classCount: 8 })) },
       mealTime: { breakfast: '07:30', lunch: '13:00', dinner: '18:00' },
     },
   ]
@@ -78,6 +78,7 @@ async function main() {
           address: s.address,
           atptCode: s.atptCode,
           schoolCode: s.schoolCode,
+          gradeStructure: s.gradeStructure,
         },
         create: { ...s, orgType: 'school' },
       }),

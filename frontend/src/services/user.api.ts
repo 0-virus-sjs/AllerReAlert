@@ -1,13 +1,17 @@
 import { api } from './api'
 
+import type { GradeStructure } from './auth.api'
+export type { GradeStructure }
+
 export interface OrganizationInfo {
-  id:        string
-  name:      string
-  address:   string | null
-  orgType:   string
-  mealTime:  Record<string, unknown> | null
-  atptCode:  string | null   // NEIS 시도교육청 코드 (school 기관)
-  schoolCode: string | null  // NEIS 표준 학교 코드
+  id:             string
+  name:           string
+  address:        string | null
+  orgType:        string
+  mealTime:       Record<string, unknown> | null
+  gradeStructure: GradeStructure | null
+  atptCode:       string | null   // NEIS 시도교육청 코드 (school 기관)
+  schoolCode:     string | null   // NEIS 표준 학교 코드
 }
 
 export interface UserProfile {

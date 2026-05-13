@@ -20,7 +20,7 @@ const userSelect = {
   guardianConsentRequired: true,
   createdAt: true,
   organization: {        // T-123 소속 단체 정보
-    select: { id: true, name: true, address: true, orgType: true, mealTime: true },
+    select: { id: true, name: true, address: true, orgType: true, mealTime: true, gradeStructure: true },
   },
 } satisfies Prisma.UserSelect
 
