@@ -21,6 +21,11 @@ export async function getMeals(month: string): Promise<MealPlan[]> {
   return data.data
 }
 
+export async function getMealById(id: string): Promise<MealPlan> {
+  const { data } = await api.get<ApiOk<MealPlan>>(`/meals/${id}`)
+  return data.data
+}
+
 export async function createMeal(payload: {
   date: string
   items: MealItemInput[]
