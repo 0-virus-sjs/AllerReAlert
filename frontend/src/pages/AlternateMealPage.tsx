@@ -16,11 +16,20 @@ function nextMonth(ym: string): string {
   return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
 }
 
-// 플랜에서 첫 번째 알레르기 항목 정보를 자동 선택 (메뉴 단위 UI 제거 대체)
-function pickAllergenTarget(plan: MealPlan) {
-  const item = plan.items.find((it) => it.allergens.length > 0)
-  if (!item) return null
-  return { replacesItemId: item.id, targetAllergenId: item.allergens[0].allergen.id }
+// 플랜 내 고유 알레르기별로 (targetAllergenId, replacesItemId) 쌍 반환
+// 복수 알레르기 플랜에서 모든 대상자를 커버하도록 AlternatePlan을 알레르기별로 생성
+function getAllAllergenTargets(plan: MealPlan) {
+  const seen = new Set<string>()
+  const targets: { targetAllergenId: string; replacesItemId: string }[] = []
+  for (const item of plan.items) {
+    for (const { allergen } of item.allergens) {
+      if (!seen.has(allergen.id)) {
+        seen.add(allergen.id)
+        targets.push({ targetAllergenId: allergen.id, replacesItemId: item.id })
+      }
+    }
+  }
+  return targets
 }
 
 export function AlternateMealPage() {
@@ -50,21 +59,24 @@ export function AlternateMealPage() {
 
     try {
       if (candidates.length > 0) {
-        const target = pickAllergenTarget(plan)
-        if (!target) {
+        const allergenTargets = getAllAllergenTargets(plan)
+        if (allergenTargets.length === 0) {
           setMsg({ type: 'error', text: '알레르기 정보가 없는 식단입니다.' })
           return
         }
+        // 후보 × 알레르기 조합으로 AlternatePlan 생성 — 복수 알레르기 모두 커버
         for (const candidate of candidates) {
-          await createAlternatePlan(planId, {
-            targetAllergenId: target.targetAllergenId,
-            items: [{
-              replacesItemId: target.replacesItemId,
-              name:      candidate.name,
-              calories:  candidate.calories,
-              nutrients: candidate.nutrients as Record<string, unknown> | undefined,
-            }],
-          })
+          for (const target of allergenTargets) {
+            await createAlternatePlan(planId, {
+              targetAllergenId: target.targetAllergenId,
+              items: [{
+                replacesItemId: target.replacesItemId,
+                name:      candidate.name,
+                calories:  candidate.calories,
+                nutrients: candidate.nutrients as Record<string, unknown> | undefined,
+              }],
+            })
+          }
         }
       }
 
