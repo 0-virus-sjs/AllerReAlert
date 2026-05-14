@@ -29,13 +29,13 @@ export async function getMealById(id: string): Promise<MealPlan> {
 export async function createMeal(payload: {
   date: string
   items: MealItemInput[]
-}): Promise<MealPlan> {
-  const { data } = await api.post<ApiOk<MealPlan>>('/meals', payload)
+}): Promise<MealPlanWithStatus> {
+  const { data } = await api.post<ApiOk<MealPlanWithStatus>>('/meals', payload)
   return data.data
 }
 
-export async function updateMeal(id: string, items: MealItemInput[]): Promise<MealPlan> {
-  const { data } = await api.put<ApiOk<MealPlan>>(`/meals/${id}`, { items })
+export async function updateMeal(id: string, items: MealItemInput[]): Promise<MealPlanWithStatus> {
+  const { data } = await api.put<ApiOk<MealPlanWithStatus>>(`/meals/${id}`, { items })
   return data.data
 }
 
@@ -43,8 +43,8 @@ export async function deleteMeal(id: string): Promise<void> {
   await api.delete(`/meals/${id}`)
 }
 
-export async function publishMeal(id: string, scheduledAt?: string): Promise<MealPlan> {
-  const { data } = await api.put<ApiOk<MealPlan>>(`/meals/${id}/publish`, { scheduledAt })
+export async function publishMeal(id: string, scheduledAt?: string): Promise<MealPlanWithStatus> {
+  const { data } = await api.put<ApiOk<MealPlanWithStatus>>(`/meals/${id}/publish`, { scheduledAt })
   return data.data
 }
 
@@ -79,6 +79,9 @@ export interface CalendarStatusEntry {
   conflictCount: number
   affectedStudents: number
 }
+
+// T-157: 저장·수정·공개 응답에 포함되는 확장 타입
+export type MealPlanWithStatus = MealPlan & { calendarStatus?: CalendarStatusEntry }
 
 export async function getMealCalendarStatus(month: string): Promise<CalendarStatusEntry[]> {
   const { data } = await api.get<ApiOk<CalendarStatusEntry[]>>('/meals/calendar-status', { params: { month } })

@@ -4,10 +4,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Spinner } from 'react-bootstrap'
 import { FlashAlert } from '../components/common/FlashAlert'
 import { getMeals, createMeal, updateMeal, publishMeal, exportMealXlsx, getMealCalendarStatus } from '../services/meals.api'
+import type { CalendarStatusEntry } from '../services/meals.api'
 import type { MealItemInput, MealPlan } from '../types/meal'
-import { MealItemRow } from '../components/meal/MealItemRow'
 import { MealItemFormModal } from '../components/meal/MealItemFormModal'
 import { PublishModal } from '../components/meal/PublishModal'
+import { DayDetailPanel } from '../components/meal/DayDetailPanel'
 import { MonthlyMealCalendar, type CalendarDayLevel } from '../components/MonthlyMealCalendar'
 
 function toDateStr(iso: string): string {
@@ -108,9 +109,22 @@ export function MealPlanPage() {
         ? updateMeal(currentPlan.id, localItems)
         : createMeal({ date: selectedDate, items: localItems })
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setIsDirty(false)
       setSaveMsg({ type: 'success', text: '저장되었습니다.' })
+      // T-157: BE 응답의 calendarStatus로 해당 날짜만 즉시 갱신 (재조회 없음)
+      if (data.calendarStatus) {
+        const entry = data.calendarStatus
+        queryClient.setQueryData(
+          ['calendar-status', month],
+          (old: CalendarStatusEntry[] | undefined) =>
+            old
+              ? [...old.filter((e) => e.date !== entry.date), entry].sort((a, b) => a.date.localeCompare(b.date))
+              : [entry],
+        )
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['calendar-status', month] })
+      }
       queryClient.invalidateQueries({ queryKey: ['meals', month] })
       setTimeout(() => setSaveMsg(null), 3000)
     },
@@ -121,7 +135,20 @@ export function MealPlanPage() {
 
   const publishMutation = useMutation({
     mutationFn: (scheduledAt?: string) => publishMeal(currentPlan!.id, scheduledAt),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // T-157: BE 응답의 calendarStatus로 해당 날짜만 즉시 갱신
+      if (data.calendarStatus) {
+        const entry = data.calendarStatus
+        queryClient.setQueryData(
+          ['calendar-status', month],
+          (old: CalendarStatusEntry[] | undefined) =>
+            old
+              ? [...old.filter((e) => e.date !== entry.date), entry].sort((a, b) => a.date.localeCompare(b.date))
+              : [entry],
+        )
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['calendar-status', month] })
+      }
       queryClient.invalidateQueries({ queryKey: ['meals', month] })
       setShowPublish(false)
       setSaveMsg({ type: 'success', text: '식단이 공개되었습니다.' })
@@ -131,12 +158,6 @@ export function MealPlanPage() {
       setSaveMsg({ type: 'error', text: '공개에 실패했습니다. 다시 시도해주세요.' })
     },
   })
-
-  const uniqueAllergens = Array.from(
-    new Set(
-      (currentPlan?.items ?? []).flatMap((it) => it.allergens.map((a) => a.allergen.name))
-    ),
-  )
 
   const [y, m]   = month.split('-').map(Number)
   const isSaving = saveMutation.isPending
@@ -178,6 +199,7 @@ export function MealPlanPage() {
         await publishMeal(plan.id)
       }
       queryClient.invalidateQueries({ queryKey: ['meals', month] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-status', month] }) // T-157
       setSaveMsg({ type: 'success', text: `${draftPlans.length}개 식단이 공개되었습니다.` })
       setTimeout(() => setSaveMsg(null), 3000)
     } catch {
@@ -189,12 +211,17 @@ export function MealPlanPage() {
     }
   }
 
-  // T-144: 선택된 날짜의 min/max로 AIMealPlanPage 이동
+  // T-144: 선택된 날짜의 min/max로 AIMealPlanPage 이동 (선택 모드 다중 날짜)
   function handleAiDraft() {
     const sorted = Array.from(selectedDates).sort()
     const startDate = sorted[0]
     const endDate   = sorted[sorted.length - 1]
     navigate(`/ai-meal-plan?startDate=${startDate}&endDate=${endDate}`)
+  }
+
+  // T-153: 패널의 단일 날짜 AI 초안 생성
+  function handleAiDraftSingle() {
+    navigate(`/ai-meal-plan?startDate=${selectedDate}&endDate=${selectedDate}`)
   }
 
   return (
@@ -208,6 +235,7 @@ export function MealPlanPage() {
         </div>
 
         <div className="d-flex gap-2 flex-wrap">
+          {/* T-144: 선택 모드 다중 날짜 AI 초안 */}
           <button
             className="btn btn-sm"
             style={{ border: '1px solid #E88FAA', color: '#C06080' }}
@@ -246,21 +274,6 @@ export function MealPlanPage() {
               선택
             </button>
           )}
-          <button
-            className="btn btn-sm btn-outline-secondary"
-            onClick={() => saveMutation.mutate()}
-            disabled={!isDirty || isSaving || localItems.length === 0}
-          >
-            {isSaving ? <Spinner size="sm" animation="border" /> : '임시저장'}
-          </button>
-          <button
-            className="btn btn-sm"
-            style={{ background: '#CFECF3', border: '1px solid #A8D8E8', color: '#3A3030' }}
-            onClick={() => setShowPublish(true)}
-            disabled={!currentPlan || currentPlan.status === 'published' || isDirty}
-          >
-            공개 예약
-          </button>
         </div>
       </div>
 
@@ -273,115 +286,51 @@ export function MealPlanPage() {
         />
       )}
 
-      {/* ── 달력 ─────────────────────────────────────────── */}
-      <div className="mb-3">
-        <MonthlyMealCalendar
-          month={month}
-          today={todayStr}
-          selectedDate={selectedDate}
-          onSelectDate={selectDate}
-          plans={plans}
-          getDayLevel={(plan): CalendarDayLevel => {
-            const ds = toDateStr(plan.date)
-            return (statusByDate.get(ds) as CalendarDayLevel | undefined) ?? 'draft'
-          }}
-          selectMode={selectMode}
-          selectedDates={selectedDates}
-          onToggleDateSelect={toggleDateSelect}
-        />
+      {/* ── T-153: 달력 + 상세 패널 2컬럼 레이아웃 ────── */}
+      <div className="d-flex gap-3" style={{ alignItems: 'flex-start' }}>
+        {/* 달력 (좌측) */}
+        <div style={{ flex: '1 1 0', minWidth: 0 }}>
+          <MonthlyMealCalendar
+            month={month}
+            today={todayStr}
+            selectedDate={selectedDate}
+            onSelectDate={selectDate}
+            plans={plans}
+            getDayLevel={(plan): CalendarDayLevel => {
+              const ds = toDateStr(plan.date)
+              return (statusByDate.get(ds) as CalendarDayLevel | undefined) ?? 'draft'
+            }}
+            selectMode={selectMode}
+            selectedDates={selectedDates}
+            onToggleDateSelect={toggleDateSelect}
+          />
+        </div>
+
+        {/* 상세 패널 (우측) */}
+        <div style={{ width: 300, flexShrink: 0 }}>
+          <DayDetailPanel
+            date={selectedDate}
+            plan={currentPlan}
+            calendarStatus={statusByDate.get(selectedDate) !== undefined
+              ? calendarStatuses.find((s) => s.date === selectedDate)
+              : undefined}
+            localItems={localItems}
+            isDirty={isDirty}
+            isSaving={isSaving}
+            isPublishing={publishMutation.isPending}
+            isLoading={isLoading}
+            onSave={() => saveMutation.mutate()}
+            onPublish={() => setShowPublish(true)}
+            onAiDraft={handleAiDraftSingle}
+            onAddItem={() => setShowAddModal(true)}
+            onEditItem={(idx) => setEditingIndex(idx)}
+            onDeleteItem={(idx) => {
+              setLocalItems((prev) => prev.filter((_, i) => i !== idx))
+              setIsDirty(true)
+            }}
+          />
+        </div>
       </div>
-
-      {/* ── 메뉴 구성 ────────────────────────────────────── */}
-      <div className="d-flex align-items-center gap-2 mb-2">
-        <span className="small fw-semibold" style={{ color: '#3A3030' }}>
-          {selectedDate.replace(/-/g, '/')} 메뉴 구성
-        </span>
-        {currentPlan?.status === 'published' && (
-          <span
-            className="badge"
-            style={{ background: '#5DBD6A', color: '#fff', fontSize: 10 }}
-          >
-            공개됨
-          </span>
-        )}
-        {currentPlan?.status === 'draft' && (
-          <span className="badge bg-warning text-dark" style={{ fontSize: 10 }}>임시저장</span>
-        )}
-        {isDirty && (
-          <span className="badge bg-light border text-muted" style={{ fontSize: 10 }}>미저장</span>
-        )}
-      </div>
-
-      {isLoading ? (
-        <div className="text-center py-5"><Spinner /></div>
-      ) : (
-        <>
-          <div className="d-flex flex-column gap-2 mb-3">
-            {localItems.map((item, idx) => (
-              <MealItemRow
-                key={idx}
-                item={item}
-                allergens={isDirty ? [] : (currentPlan?.items[idx]?.allergens ?? [])}
-                onEdit={() => setEditingIndex(idx)}
-                onDelete={() => {
-                  setLocalItems((prev) => prev.filter((_, i) => i !== idx))
-                  setIsDirty(true)
-                }}
-              />
-            ))}
-
-            {localItems.length === 0 && (
-              <div
-                className="text-muted small py-4 text-center rounded"
-                style={{ border: '1.5px dashed #C0BBB4', background: '#FAFEFF' }}
-              >
-                이 날짜에 등록된 메뉴가 없습니다.
-              </div>
-            )}
-
-            <button
-              className="btn btn-sm w-100"
-              style={{
-                borderStyle: 'dashed',
-                borderColor: '#C0BBB4',
-                color: '#888',
-                background: '#FAFEFF',
-              }}
-              onClick={() => setShowAddModal(true)}
-            >
-              + 메뉴 추가
-            </button>
-          </div>
-
-          <hr style={{ borderColor: '#E0DBD4' }} />
-
-          {/* ── 알레르기 요약 + 자동 태깅 버튼 ───────────── */}
-          <div className="d-flex align-items-center justify-content-between flex-wrap gap-2">
-            <div className="small" style={{ color: '#7A6070' }}>
-              총 알레르기 유발물질:{' '}
-              {uniqueAllergens.length > 0 ? (
-                <strong style={{ color: '#E06080' }}>{uniqueAllergens.join(', ')}</strong>
-              ) : (
-                <span>없음</span>
-              )}
-              {isDirty && (
-                <span className="text-muted ms-1" style={{ fontSize: 10 }}>(저장 후 갱신)</span>
-              )}
-            </div>
-
-            <button
-              className="btn btn-sm"
-              style={{ border: '1px solid #5DBD6A', color: '#2E7D32' }}
-              onClick={() => saveMutation.mutate()}
-              disabled={isSaving || localItems.length === 0}
-            >
-              {isSaving
-                ? <Spinner size="sm" animation="border" />
-                : '알레르기 자동 태깅'}
-            </button>
-          </div>
-        </>
-      )}
 
       {/* ── 메뉴 추가 모달 ───────────────────────────────── */}
       <MealItemFormModal
