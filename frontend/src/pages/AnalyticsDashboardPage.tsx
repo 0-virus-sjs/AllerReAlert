@@ -354,9 +354,10 @@ export function AnalyticsDashboardPage() {
                         </Pie>
                         <Tooltip formatter={(v) => [`${v}명`, '보유인원']} />
                         <Legend
-                          formatter={(value, entry: any) =>
-                            `${value} ${(((entry.payload?.percent) ?? 0) * 100).toFixed(0)}%`
-                          }
+                          formatter={(value, entry) => {
+                            const pct = ((entry as { payload?: { percent?: number } }).payload?.percent ?? 0) * 100
+                            return `${value} ${pct.toFixed(0)}%`
+                          }}
                         />
                       </PieChart>
                     </ResponsiveContainer>

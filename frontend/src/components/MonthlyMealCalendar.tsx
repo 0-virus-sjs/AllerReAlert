@@ -112,6 +112,7 @@ export function MonthlyMealCalendar(props: Props) {
   useEffect(() => { selDatesRef.current = selectedDates }, [selectedDates])
 
   const [dragPreview, setDragPreview] = useState<Set<string>>(new Set())
+  const [dragMode, setDragMode]       = useState<'add' | 'remove'>('add')
   const dragPreviewRef = useRef<Set<string>>(new Set())
   const isDragging     = dragPreview.size > 0
 
@@ -145,8 +146,10 @@ export function MonthlyMealCalendar(props: Props) {
   }, [selectMode, onToggleDateSelect])
 
   function startDrag(ds: string) {
-    dragStartRef.current = ds
-    dragModeRef.current  = selDatesRef.current?.has(ds) ? 'remove' : 'add'
+    const mode: 'add' | 'remove' = selDatesRef.current?.has(ds) ? 'remove' : 'add'
+    dragStartRef.current  = ds
+    dragModeRef.current   = mode
+    setDragMode(mode)
     const single = new Set([ds])
     dragPreviewRef.current = single
     setDragPreview(single)
@@ -249,7 +252,7 @@ export function MonthlyMealCalendar(props: Props) {
           const bg = !inMonth
             ? '#F4F1EC'
             : isDragPreview
-              ? dragModeRef.current === 'remove' ? '#FFE8EC' : '#FFF7D0'
+              ? dragMode === 'remove' ? '#FFE8EC' : '#FFF7D0'
               : isBulkChecked
               ? '#FFFBE6'
               : level === 'needs-alt' || level === 'danger'
@@ -287,7 +290,7 @@ export function MonthlyMealCalendar(props: Props) {
                 borderRight: dayOfWeek < 6 ? '1px solid #E0DBD4' : 'none',
                 borderBottom: '1px solid #E0DBD4',
                 outline: isDragPreview
-                  ? `2px solid ${dragModeRef.current === 'remove' ? '#E06080' : '#E8A820'}`
+                  ? `2px solid ${dragMode === 'remove' ? '#E06080' : '#E8A820'}`
                   : isBulkChecked
                     ? '2px solid #E8A820'
                     : isSelected
