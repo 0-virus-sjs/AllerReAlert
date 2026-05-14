@@ -35,6 +35,7 @@ export interface MonthlyReport {
 
 export interface SchoolStats {
   totalStudents: number
+  studentsWithAllergy: number
   gender: {
     male: number
     female: number
@@ -270,13 +271,24 @@ export async function getSchoolStats(orgId: string): Promise<SchoolStats> {
   if (cached) return cached
 
   // 학생만 (활성 계정), 학교 한정
-  const students = await prisma.user.findMany({
-    where: { orgId, role: 'student', isActive: true },
-    select: { gender: true, grade: true },
-  })
+  const [students, studentsWithAllergy] = await Promise.all([
+    prisma.user.findMany({
+      where: { orgId, role: 'student', isActive: true },
+      select: { gender: true, grade: true },
+    }),
+    prisma.user.count({
+      where: {
+        orgId,
+        role: 'student',
+        isActive: true,
+        allergens: { some: { status: 'confirmed' } },
+      },
+    }),
+  ])
 
   const stats: SchoolStats = {
     totalStudents: students.length,
+    studentsWithAllergy,
     gender: { male: 0, female: 0, unknown: 0 },
     grade: {},
   }

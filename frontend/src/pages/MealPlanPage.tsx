@@ -358,7 +358,6 @@ export function MealPlanPage() {
         <div className={showAlternate ? 'col-12 col-md-4' : 'col-12 col-md-4'}>
           <DayDetailPanel
             date={selectedDate}
-            month={month}
             plan={currentPlan}
             calendarStatus={
               statusByDate.get(selectedDate) !== undefined
