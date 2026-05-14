@@ -14,7 +14,7 @@ export function registerBackupJob(): void {
   }
   cron.schedule('0 2 * * 0', () => {
     runBackup().catch((err) => logger.error({ err }, '백업 잡 예외'))
-  })
+  }, { timezone: 'Asia/Seoul' })
   logger.info('DB 백업 잡 등록 완료 (매주 일요일 02:00)')
 }
 

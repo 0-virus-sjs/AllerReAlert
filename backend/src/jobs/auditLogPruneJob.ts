@@ -15,6 +15,6 @@ export function registerAuditLogPruneJob(): void {
     } catch (err) {
       logger.error({ err }, '[T-106] 감사 로그 정리 실패')
     }
-  })
+  }, { timezone: 'Asia/Seoul' })
   logger.info('[T-106] 감사 로그 보관 정리 잡 등록 완료 (매일 03:00, 1년 초과 삭제)')
 }

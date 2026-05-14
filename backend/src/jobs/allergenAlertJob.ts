@@ -78,7 +78,7 @@ export function registerAllergenAlertJob(): void {
     runDailyAlertJob().catch((err) =>
       logger.error({ err }, '[T-052] 일일 알림 잡 예외')
     )
-  })
+  }, { timezone: 'Asia/Seoul' })
 
   logger.info({ cron: CRON_EXPR }, '[T-052] 일일 알레르기 알림 잡 등록 완료')
 }
