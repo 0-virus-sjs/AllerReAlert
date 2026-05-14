@@ -10,8 +10,14 @@ interface Props {
   size?: 'sm' | 'md'
 }
 
-export function AllergenBadge({ allergen, dangerous = false, autoTagged = false, size = 'sm' }: Props) {
-  const bg = dangerous ? 'danger' : 'secondary'
+export function AllergenBadge({
+  allergen,
+  dangerous = false,
+  autoTagged = false,
+  size = 'sm',
+}: Props) {
+  // const bg = dangerous ? 'danger' : ''
+  const text = '#000000'
   const fs = size === 'sm' ? '0.65rem' : '0.75rem'
   const label = `${allergen.code}. ${allergen.name}${autoTagged ? ' (자동)' : ''}`
 
@@ -26,9 +32,17 @@ export function AllergenBadge({ allergen, dangerous = false, autoTagged = false,
       }
     >
       <Badge
-        bg={bg}
+        bg=""
         className="me-1"
-        style={{ fontSize: fs, cursor: 'default', opacity: autoTagged && !dangerous ? 0.75 : 1 }}
+        style={{
+          fontSize: fs,
+          backgroundColor: dangerous ? 'danger' : '#cae9ff',
+          borderRadius: 10,
+          border: '1px solid #000000',
+          color: text,
+          cursor: 'default',
+          opacity: autoTagged && !dangerous ? 0.75 : 1,
+        }}
         aria-label={label}
       >
         {allergen.code}

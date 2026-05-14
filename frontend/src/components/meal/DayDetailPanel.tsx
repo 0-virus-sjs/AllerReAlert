@@ -1,15 +1,11 @@
-import { useState } from 'react'
 import { Spinner } from 'react-bootstrap'
 import type { MealPlan, MealItemInput } from '../../types/meal'
 import type { CalendarStatusEntry } from '../../services/meals.api'
 import { MealItemRow } from './MealItemRow'
-import { PanelAiSection } from './PanelAiSection'
 import { PanelConflictInfo } from './PanelConflictInfo'
-import { AlternatePlanCard } from './AlternatePlanCard'
 
 interface Props {
   date: string
-  month: string
   plan: MealPlan | undefined
   calendarStatus: CalendarStatusEntry | undefined
   localItems: MealItemInput[]
@@ -19,19 +15,16 @@ interface Props {
   isLoading: boolean
   onSave: () => void
   onPublish: () => void
-  onAiSaved: () => void
   onAddItem: () => void
   onEditItem: (index: number) => void
   onDeleteItem: (index: number) => void
 }
 
 export function DayDetailPanel({
-  date, month, plan, calendarStatus, localItems, isDirty,
+  date, plan, calendarStatus, localItems, isDirty,
   isSaving, isPublishing, isLoading,
-  onSave, onPublish, onAiSaved, onAddItem, onEditItem, onDeleteItem,
+  onSave, onPublish, onAddItem, onEditItem, onDeleteItem,
 }: Props) {
-  const [showAi, setShowAi] = useState(false)
-
   const uniqueAllergens = Array.from(
     new Set((plan?.items ?? []).flatMap((it) => it.allergens.map((a) => a.allergen.name))),
   )
@@ -46,7 +39,7 @@ export function DayDetailPanel({
         background: '#fff',
         display: 'flex',
         flexDirection: 'column',
-        minHeight: 480,
+        minHeight: 360,
       }}
     >
       {/* ── 패널 헤더 ───────────────────────────────── */}
@@ -144,62 +137,31 @@ export function DayDetailPanel({
               )}
             </div>
 
-            {/* AI 생성 섹션 */}
-            {showAi && (
-              <PanelAiSection
-                date={date}
-                onSaved={() => { onAiSaved(); setShowAi(false) }}
-                onClose={() => setShowAi(false)}
-              />
-            )}
-
-            {/* T-155: 대체식단 섹션 (needs-alt / has-alt 상태에서만 표시) */}
-            {plan && (calendarStatus?.status === 'needs-alt' || calendarStatus?.status === 'has-alt') && (
-              <>
-                <hr style={{ borderColor: '#E0DBD4', margin: '8px 0' }} />
-                <div className="small fw-semibold mb-2" style={{ color: '#C06080', fontSize: 12 }}>
-                  대체 식단
-                </div>
-                <AlternatePlanCard plan={plan} month={month} />
-              </>
-            )}
-
             {/* 액션 버튼 */}
-            <div className="d-flex flex-column gap-2 mt-auto">
-              {!showAi && (
-                <button
-                  className="btn btn-sm w-100"
-                  style={{ border: '1px solid #E88FAA', color: '#C06080', fontSize: 12 }}
-                  onClick={() => setShowAi(true)}
-                >
-                  AI 초안 생성
-                </button>
-              )}
-              <div className="d-flex gap-2">
-                <button
-                  className="btn btn-sm flex-fill"
-                  style={{ border: '1px solid #5DBD6A', color: '#2E7D32', fontSize: 12 }}
-                  onClick={onSave}
-                  disabled={isSaving || localItems.length === 0}
-                >
-                  {isSaving
-                    ? <Spinner size="sm" animation="border" />
-                    : isDirty ? '저장' : '자동 태깅'}
-                </button>
-                <button
-                  className="btn btn-sm flex-fill"
-                  style={{
-                    background: '#CFECF3',
-                    border: '1px solid #A8D8E8',
-                    color: '#3A3030',
-                    fontSize: 12,
-                  }}
-                  onClick={onPublish}
-                  disabled={!canPublish || isPublishing}
-                >
-                  {isPublishing ? <Spinner size="sm" animation="border" /> : '공개 예약'}
-                </button>
-              </div>
+            <div className="d-flex gap-2 mt-auto">
+              <button
+                className="btn btn-sm flex-fill"
+                style={{ border: '1px solid #5DBD6A', color: '#2E7D32', fontSize: 12 }}
+                onClick={onSave}
+                disabled={isSaving || localItems.length === 0}
+              >
+                {isSaving
+                  ? <Spinner size="sm" animation="border" />
+                  : isDirty ? '저장' : '자동 태깅'}
+              </button>
+              <button
+                className="btn btn-sm flex-fill"
+                style={{
+                  background: '#CFECF3',
+                  border: '1px solid #A8D8E8',
+                  color: '#3A3030',
+                  fontSize: 12,
+                }}
+                onClick={onPublish}
+                disabled={!canPublish || isPublishing}
+              >
+                {isPublishing ? <Spinner size="sm" animation="border" /> : '공개 예약'}
+              </button>
             </div>
           </>
         )}
