@@ -4,9 +4,12 @@ import type { MealPlan, MealItemInput } from '../../types/meal'
 import type { CalendarStatusEntry } from '../../services/meals.api'
 import { MealItemRow } from './MealItemRow'
 import { PanelAiSection } from './PanelAiSection'
+import { PanelConflictInfo } from './PanelConflictInfo'
+import { AlternatePlanCard } from './AlternatePlanCard'
 
 interface Props {
   date: string
+  month: string
   plan: MealPlan | undefined
   calendarStatus: CalendarStatusEntry | undefined
   localItems: MealItemInput[]
@@ -23,7 +26,7 @@ interface Props {
 }
 
 export function DayDetailPanel({
-  date, plan, calendarStatus, localItems, isDirty,
+  date, month, plan, calendarStatus, localItems, isDirty,
   isSaving, isPublishing, isLoading,
   onSave, onPublish, onAiSaved, onAddItem, onEditItem, onDeleteItem,
 }: Props) {
@@ -34,7 +37,6 @@ export function DayDetailPanel({
   )
 
   const canPublish = !!plan && plan.status !== 'published' && !isDirty
-  const hasConflict = (calendarStatus?.conflictCount ?? 0) > 0
 
   return (
     <div
@@ -79,13 +81,8 @@ export function DayDetailPanel({
           </div>
         </div>
 
-        {/* 충돌 경고 (T-157 데이터 활용) */}
-        {hasConflict && (
-          <div style={{ marginTop: 5, fontSize: 11, color: '#C04060' }}>
-            ⚠ 알레르기 충돌 {calendarStatus!.conflictCount}건
-            · 영향 학생 {calendarStatus!.affectedStudents}명
-          </div>
-        )}
+        {/* T-156: 충돌 상세 (접이식) */}
+        <PanelConflictInfo plan={plan} calendarStatus={calendarStatus} />
       </div>
 
       {/* ── 패널 바디 ───────────────────────────────── */}
@@ -154,6 +151,17 @@ export function DayDetailPanel({
                 onSaved={() => { onAiSaved(); setShowAi(false) }}
                 onClose={() => setShowAi(false)}
               />
+            )}
+
+            {/* T-155: 대체식단 섹션 (needs-alt / has-alt 상태에서만 표시) */}
+            {plan && (calendarStatus?.status === 'needs-alt' || calendarStatus?.status === 'has-alt') && (
+              <>
+                <hr style={{ borderColor: '#E0DBD4', margin: '8px 0' }} />
+                <div className="small fw-semibold mb-2" style={{ color: '#C06080', fontSize: 12 }}>
+                  대체 식단
+                </div>
+                <AlternatePlanCard plan={plan} month={month} />
+              </>
             )}
 
             {/* 액션 버튼 */}

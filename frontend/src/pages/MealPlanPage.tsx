@@ -306,6 +306,7 @@ export function MealPlanPage() {
         <div style={{ width: 300, flexShrink: 0 }}>
           <DayDetailPanel
             date={selectedDate}
+            month={month}
             plan={currentPlan}
             calendarStatus={statusByDate.get(selectedDate) !== undefined
               ? calendarStatuses.find((s) => s.date === selectedDate)
