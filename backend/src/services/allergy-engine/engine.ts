@@ -83,6 +83,72 @@ export async function runAllergenCheck(
 }
 
 /**
+ * 특정 날짜 식단에 대해 알레르기 충돌을 판정한다 (T-157).
+ * draft·published 모두 대상. 식단이 없으면 null 반환.
+ */
+export async function runDayConflictScan(
+  orgId: string,
+  date: string,  // YYYY-MM-DD
+): Promise<DayConflictResult | null> {
+  const [y, m, d] = date.split('-').map(Number)
+  const from = new Date(Date.UTC(y, m - 1, d))
+  const to   = new Date(Date.UTC(y, m - 1, d + 1))
+
+  const mealPlan = await prisma.mealPlan.findFirst({
+    where: { orgId, date: { gte: from, lt: to } },
+    include: {
+      items: {
+        include: {
+          allergens: {
+            include: { allergen: { select: { id: true, code: true, name: true } } },
+          },
+        },
+      },
+    },
+  })
+
+  if (!mealPlan) return null
+
+  const userAllergens = await prisma.userAllergen.findMany({
+    where: { user: { orgId }, status: 'confirmed' },
+    include: { user: { select: { id: true, orgId: true, role: true } } },
+  })
+
+  const userMap = new Map<string, { userId: string; orgId: string; role: string; allergens: { allergenId: string; status: 'confirmed' }[] }>()
+  for (const ua of userAllergens) {
+    if (!userMap.has(ua.userId)) {
+      userMap.set(ua.userId, {
+        userId: ua.user.id,
+        orgId: ua.user.orgId,
+        role: ua.user.role,
+        allergens: [],
+      })
+    }
+    userMap.get(ua.userId)!.allergens.push({ allergenId: ua.allergenId, status: 'confirmed' })
+  }
+
+  const mealItems = mealPlan.items.map((item) => ({
+    id: item.id,
+    name: item.name,
+    allergens: item.allergens.map((a) => ({
+      allergenId: a.allergenId,
+      allergenCode: a.allergen.code,
+      allergenName: a.allergen.name,
+    })),
+  }))
+
+  const matches = matchAllergens(mealItems, [...userMap.values()])
+  const conflictItemIds = new Set(matches.flatMap((m) => m.matchedItems.map((mi) => mi.mealItemId)))
+
+  return {
+    date,
+    conflictCount: conflictItemIds.size,
+    affectedStudents: matches.length,
+    matches,
+  }
+}
+
+/**
  * 월간 모든 날짜에 대해 일괄 알레르기 충돌을 판정한다 (T-152).
  * statuses 미지정 시 draft·published 모두 포함.
  */

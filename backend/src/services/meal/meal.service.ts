@@ -4,6 +4,7 @@ import { cache, CacheKey, invalidateMealCache, invalidateOrgAnalyticsCache } fro
 import { applyAutoTaggingBatch } from './tagging.service'
 import { onPublishedMealChanged } from './change-hook'
 import { AppError } from '../../middlewares/errorHandler'
+import { runDayConflictScan } from '../allergy-engine/engine'
 import type { MealItem, MealItemCategory } from '@prisma/client'
 
 export interface MealItemInput {
@@ -84,6 +85,7 @@ export async function createMealPlan(input: CreateMealInput) {
             },
           },
         },
+        alternatePlans: { select: { status: true } },
       },
     })
   })
@@ -91,7 +93,15 @@ export async function createMealPlan(input: CreateMealInput) {
   // 단건 생성 후에도 즉시 GET /meals·analytics 캐시에 반영되도록 무효화
   invalidateMealCache(input.orgId)
   invalidateOrgAnalyticsCache(input.orgId)
-  return plan
+
+  // T-157: 저장 직후 해당 날짜 충돌 상태를 응답에 포함 (FE 단일 요청으로 처리 가능)
+  const calendarStatus = await buildDayCalendarStatus(
+    input.orgId,
+    plan.date.toISOString().slice(0, 10),
+    plan.status,
+    plan.alternatePlans,
+  )
+  return { ...plan, calendarStatus }
 }
 
 // 월간 일괄 생성 — 각 날짜별로 독립 트랜잭션
@@ -253,7 +263,14 @@ export async function updateMealPlan(
   invalidateMealCache(orgId)
   invalidateOrgAnalyticsCache(orgId)
 
-  return updated
+  // T-157: 수정 직후 해당 날짜 충돌 상태를 응답에 포함
+  const calendarStatus = await buildDayCalendarStatus(
+    orgId,
+    updated.date.toISOString().slice(0, 10),
+    updated.status,
+    updated.alternatePlans,
+  )
+  return { ...updated, calendarStatus }
 }
 
 // ── T-032 ─────────────────────────────────────────────
@@ -287,11 +304,20 @@ export async function publishMealPlan(
   const published = await prisma.mealPlan.update({
     where: { id },
     data: { status: 'published', publishedAt: new Date(), scheduledAt: null },
+    include: { alternatePlans: { select: { status: true } } },
   })
   cache.del(CacheKey.mealDetail(id))
   invalidateMealCache(orgId)
   invalidateOrgAnalyticsCache(orgId)
-  return published
+
+  // T-157: 공개 직후 해당 날짜 충돌 상태를 응답에 포함
+  const calendarStatus = await buildDayCalendarStatus(
+    orgId,
+    published.date.toISOString().slice(0, 10),
+    published.status,
+    published.alternatePlans,
+  )
+  return { ...published, calendarStatus }
 }
 
 // node-cron 폴링 잡에서 호출 — 예약 시각 도래한 draft 식단을 일괄 공개
@@ -331,6 +357,30 @@ export interface CalendarStatusEntry {
   hasAlternate: boolean
   conflictCount: number
   affectedStudents: number
+}
+
+// T-157: 단일 날짜의 CalendarStatusEntry 계산 (저장·수정·공개 응답에 포함)
+async function buildDayCalendarStatus(
+  orgId: string,
+  dateStr: string,
+  planStatus: string,
+  alternatePlans: Array<{ status: string }>,
+): Promise<CalendarStatusEntry> {
+  const conflict = await runDayConflictScan(orgId, dateStr)
+  const conflictCount    = conflict?.conflictCount    ?? 0
+  const affectedStudents = conflict?.affectedStudents ?? 0
+  const hasConfirmedAlt  = alternatePlans.some((ap) => ap.status === 'confirmed')
+
+  let status: CalendarDayStatus
+  if (planStatus === 'published') {
+    if (conflictCount === 0)  status = 'published'
+    else if (hasConfirmedAlt) status = 'has-alt'
+    else                      status = 'needs-alt'
+  } else {
+    status = conflictCount > 0 ? 'needs-review' : 'draft'
+  }
+
+  return { date: dateStr, status, hasAlternate: hasConfirmedAlt, conflictCount, affectedStudents }
 }
 
 export async function getMealCalendarStatus(
