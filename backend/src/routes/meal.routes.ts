@@ -11,6 +11,7 @@ import {
   exportMealPdfHandler,
   exportMealXlsxHandler,
   mealConditionDefaultsHandler,
+  calendarStatusHandler,
 } from '../controllers/meal.controller'
 import { createAlternateHandler, saveAlternatesHandler } from '../controllers/alternate.controller'
 import { allergenCheckHandler } from '../controllers/allergen.controller'
@@ -26,6 +27,9 @@ router.get('/export/xlsx', exportMealXlsxHandler)
 
 // T-129: 식단 생성 조건 기본값 (영양사 전용) — /:id 보다 먼저 등록
 router.get('/conditions/defaults', requireRole(['nutritionist']), mealConditionDefaultsHandler)
+
+// T-151: 영양사 달력 상태 메타데이터 — /:id 보다 먼저 등록
+router.get('/calendar-status', requireRole(['nutritionist']), calendarStatusHandler)
 
 // T-034: 식단 목록/단건 조회 (전 역할)
 router.get('/',    listMealsHandler)
