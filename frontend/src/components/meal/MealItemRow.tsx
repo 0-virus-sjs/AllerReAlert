@@ -19,73 +19,80 @@ export function MealItemRow({ item, allergens, onEdit, onDelete }: Props) {
 
   return (
     <div
-      className="d-flex align-items-center gap-2 px-3 py-2 rounded"
+      className="rounded"
       style={{
         background: '#FAFEFF',
         border: `1px solid ${hasAllergen ? '#E88FAA' : '#E0DBD4'}`,
-        minHeight: 36,
       }}
     >
-      <span
-        style={{
-          fontFamily: 'IBM Plex Mono, monospace',
-          fontSize: 10,
-          color: '#888',
-          width: 30,
-          flexShrink: 0,
-        }}
-      >
-        {CATEGORY_LABELS[item.category]}
-      </span>
+      {/* 알레르기 태그 — 메뉴명 위 별도 행 */}
+      {hasAllergen && (
+        <div className="d-flex flex-wrap gap-1 px-3 pt-2">
+          {allergens.map((a) => (
+            <span
+              key={a.allergen.id}
+              style={{
+                background: '#FDDDE8',
+                border: '1px solid #E06080',
+                color: '#C04060',
+                borderRadius: 3,
+                padding: '1px 5px',
+                fontSize: 10,
+                flexShrink: 0,
+              }}
+            >
+              {a.allergen.name}
+            </span>
+          ))}
+        </div>
+      )}
 
-      <span className="flex-grow-1 small" style={{ color: '#3A3030' }}>
-        {item.name}
-      </span>
-
-      {allergens.map((a) => (
-        <span
-          key={a.allergen.id}
-          style={{
-            background: '#FDDDE8',
-            border: '1px solid #E06080',
-            color: '#C04060',
-            borderRadius: 3,
-            padding: '1px 5px',
-            fontSize: 10,
-            flexShrink: 0,
-          }}
-        >
-          {a.allergen.name}
-        </span>
-      ))}
-
-      {item.calories != null && (
+      {/* 메인 행 */}
+      <div className="d-flex align-items-center gap-2 px-3 py-2" style={{ minHeight: 36 }}>
         <span
           style={{
             fontFamily: 'IBM Plex Mono, monospace',
             fontSize: 10,
-            color: '#aaa',
+            color: '#888',
+            width: 30,
             flexShrink: 0,
           }}
         >
-          {item.calories}kcal
+          {CATEGORY_LABELS[item.category]}
         </span>
-      )}
 
-      <button
-        className="btn btn-sm"
-        style={{ fontSize: 10, padding: '2px 8px', flexShrink: 0 }}
-        onClick={onEdit}
-      >
-        편집
-      </button>
-      <button
-        className="btn btn-sm"
-        style={{ fontSize: 10, padding: '2px 8px', color: '#F97B8B', flexShrink: 0 }}
-        onClick={onDelete}
-      >
-        삭제
-      </button>
+        <span className="flex-grow-1 small" style={{ color: '#3A3030' }}>
+          {item.name}
+        </span>
+
+        {item.calories != null && (
+          <span
+            style={{
+              fontFamily: 'IBM Plex Mono, monospace',
+              fontSize: 10,
+              color: '#aaa',
+              flexShrink: 0,
+            }}
+          >
+            {item.calories}kcal
+          </span>
+        )}
+
+        <button
+          className="btn btn-sm"
+          style={{ fontSize: 10, padding: '2px 8px', flexShrink: 0 }}
+          onClick={onEdit}
+        >
+          편집
+        </button>
+        <button
+          className="btn btn-sm"
+          style={{ fontSize: 10, padding: '2px 8px', color: '#F97B8B', flexShrink: 0 }}
+          onClick={onDelete}
+        >
+          삭제
+        </button>
+      </div>
     </div>
   )
 }

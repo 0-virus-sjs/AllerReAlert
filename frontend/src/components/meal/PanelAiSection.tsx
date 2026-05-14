@@ -1,39 +1,23 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Alert, Badge, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap'
-import { FlashAlert } from '../components/common/FlashAlert'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { getMealPlanGenerationJob, startMealPlanGeneration } from '../services/ai.api'
-import type { GenerateMealPlanJob, NutrientItem, PriceConstraint } from '../services/ai.api'
-import { fetchMealConditionDefaults, getMealById, updateMeal } from '../services/meals.api'
-import { searchNeisSchools } from '../services/neis.api'
-import type { NeisSchool } from '../services/neis.api'
-import { userApi } from '../services/user.api'
-import { GeneratedMealGrid } from '../components/meal/GeneratedMealGrid'
-import type { EditablePlan } from '../components/meal/GeneratedMealGrid'
-import type { MealItemInput } from '../types/meal'
+import { getMealPlanGenerationJob, startMealPlanGeneration } from '../../services/ai.api'
+import type { GenerateMealPlanJob, NutrientItem, PriceConstraint } from '../../services/ai.api'
+import { fetchMealConditionDefaults, getMealById, updateMeal } from '../../services/meals.api'
+import { searchNeisSchools } from '../../services/neis.api'
+import type { NeisSchool } from '../../services/neis.api'
+import { userApi } from '../../services/user.api'
+import { GeneratedMealGrid } from './GeneratedMealGrid'
+import type { EditablePlan } from './GeneratedMealGrid'
+import type { MealItemInput } from '../../types/meal'
 
 // ── 상수 ──────────────────────────────────────────────────
 
 const MEAL_DAYS: Record<PriceConstraint['period'], number> = { month: 22, week: 5, day: 1 }
-const JOB_POLL_MS = 2_000
+const JOB_POLL_MS  = 2_000
 const JOB_POLL_MAX = 180
 
-// ── 날짜 헬퍼 ─────────────────────────────────────────────
-
-function pad(n: number) { return String(n).padStart(2, '0') }
-
-function formatDate(d: Date): string {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
-
-function defaultPeriod() {
-  const t = new Date()
-  return {
-    from: formatDate(new Date(t.getFullYear(), t.getMonth(), 1)),
-    to:   formatDate(new Date(t.getFullYear(), t.getMonth() + 1, 0)),
-  }
-}
+function wait(ms: number) { return new Promise<void>((r) => { window.setTimeout(r, ms) }) }
 
 function apiErrorMsg(e: unknown): string {
   const ae = e as { response?: { data?: { message?: string; error?: { message?: string } } } }
@@ -44,12 +28,10 @@ function apiErrorMsg(e: unknown): string {
   )
 }
 
-function wait(ms: number) { return new Promise<void>((r) => { window.setTimeout(r, ms) }) }
-
-// ── 영양소 행 ────────────────────────────────────────────
+// ── 영양소 행 ─────────────────────────────────────────────
 
 interface NutrientRowProps {
-  item: NutrientItem
+  item:     NutrientItem
   onChange: (updated: NutrientItem) => void
   onDelete: () => void
 }
@@ -83,41 +65,44 @@ function NutrientRow({ item, onChange, onDelete }: NutrientRowProps) {
   )
 }
 
-// ── 메인 페이지 ──────────────────────────────────────────
+// ── Props ─────────────────────────────────────────────────
 
-export function AIMealPlanPage() {
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const { from: defFrom, to: defTo } = defaultPeriod()
+interface Props {
+  dateFrom: string   // 선택된 날짜 범위 시작 (YYYY-MM-DD)
+  dateTo:   string   // 선택된 날짜 범위 종료 (YYYY-MM-DD)
+  onSaved:  () => void
+  onClose:  () => void
+}
 
-  // T-144: URL 파라미터(startDate/endDate)가 있으면 우선 사용
-  const [periodFrom, setPeriodFrom] = useState(searchParams.get('startDate') ?? defFrom)
-  const [periodTo,   setPeriodTo]   = useState(searchParams.get('endDate')   ?? defTo)
+// ── 메인 컴포넌트 ─────────────────────────────────────────
+
+export function PanelAiSection({ dateFrom, dateTo, onSaved, onClose }: Props) {
+  const [periodFrom, setPeriodFrom] = useState(dateFrom)
+  const [periodTo,   setPeriodTo]   = useState(dateTo)
 
   // 영양소 항목
-  const [nutrients,    setNutrients]    = useState<NutrientItem[]>([])
-  const [showAddForm,  setShowAddForm]  = useState(false)
-  const [addLabel,     setAddLabel]     = useState('')
-  const [addTarget,    setAddTarget]    = useState('')
-  const [addUnit,      setAddUnit]      = useState('g')
+  const [nutrients,   setNutrients]   = useState<NutrientItem[]>([])
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [addLabel,    setAddLabel]    = useState('')
+  const [addTarget,   setAddTarget]   = useState('')
+  const [addUnit,     setAddUnit]     = useState('g')
   const defaultsLoaded = useRef(false)
 
-  // NEIS 학교 — profile에서 파생, 사용자가 다른 학교 선택 시 override
+  // NEIS 학교
   const [schoolOverride, setSchoolOverride] = useState<{ atptCode: string; schulCode: string; name: string } | null>(null)
   const [schoolQuery,    setSchoolQuery]    = useState('')
   const [schoolResults,  setSchoolResults]  = useState<NeisSchool[]>([])
   const [showDropdown,   setShowDropdown]   = useState(false)
 
   // 단가 제약
-  const [priceEnabled,  setPriceEnabled]  = useState(false)
-  const [pricePeriod,   setPricePeriod]   = useState<PriceConstraint['period']>('day')
-  const [priceAgg,      setPriceAgg]      = useState<PriceConstraint['aggregation']>('avg')
-  const [priceValue,    setPriceValue]    = useState('')
+  const [priceEnabled, setPriceEnabled] = useState(false)
+  const [pricePeriod,  setPricePeriod]  = useState<PriceConstraint['period']>('day')
+  const [priceAgg,     setPriceAgg]     = useState<PriceConstraint['aggregation']>('avg')
+  const [priceValue,   setPriceValue]   = useState('')
 
   // 선호/제외
-  const [preferences,      setPreferences]      = useState('')
-  const [excludes,         setExcludes]         = useState('')
-  const [includeWeekends,  setIncludeWeekends]  = useState(false)
+  const [preferences, setPreferences] = useState('')
+  const [excludes,    setExcludes]    = useState('')
 
   // 실행 상태
   const [loading,       setLoading]       = useState(false)
@@ -126,7 +111,7 @@ export function AIMealPlanPage() {
   const [editablePlans, setEditablePlans] = useState<EditablePlan[]>([])
   const [saving,        setSaving]        = useState(false)
 
-  // ── API 쿼리 ──────────────────────────────────────────
+  // ── 쿼리 ──────────────────────────────────────────────
 
   const { data: profile } = useQuery({
     queryKey: ['me'],
@@ -140,9 +125,8 @@ export function AIMealPlanPage() {
     staleTime: Infinity,
   })
 
-  // ── Effects ───────────────────────────────────────────
+  // ── 기본값 초기 로드 ──────────────────────────────────
 
-  // 기본값 최초 로드 → 영양소 초기화
   useEffect(() => {
     if (defaults && !defaultsLoaded.current) {
       setNutrients(defaults.nutrients)
@@ -150,7 +134,8 @@ export function AIMealPlanPage() {
     }
   }, [defaults])
 
-  // NEIS 학교 검색 디바운스 — 동기 setState 없이 setTimeout 콜백 안에서만 호출
+  // ── NEIS 학교 검색 디바운스 ──────────────────────────
+
   useEffect(() => {
     if (schoolQuery.length < 2) return
     const timer = setTimeout(async () => {
@@ -165,12 +150,13 @@ export function AIMealPlanPage() {
 
   // ── 파생값 ────────────────────────────────────────────
 
-  // 소속 학교: override > profile 순으로 fallback (effect 없이 파생)
-  const neisAtptCode     = schoolOverride?.atptCode  ?? profile?.organization?.atptCode   ?? ''
-  const neisSchulCode    = schoolOverride?.schulCode ?? profile?.organization?.schoolCode ?? ''
-  const schoolDisplayName = schoolOverride?.name     ?? (profile?.organization?.atptCode && profile?.organization?.schoolCode ? profile.organization.name : '')
-
-  // 쿼리가 짧으면 결과 숨김 (동기 setState 대신 파생값으로 처리)
+  const neisAtptCode      = schoolOverride?.atptCode  ?? profile?.organization?.atptCode   ?? ''
+  const neisSchulCode     = schoolOverride?.schulCode ?? profile?.organization?.schoolCode ?? ''
+  const schoolDisplayName = schoolOverride?.name      ?? (
+    profile?.organization?.atptCode && profile?.organization?.schoolCode
+      ? profile.organization.name
+      : ''
+  )
   const visibleResults = schoolQuery.length >= 2 ? schoolResults : []
 
   const perMealPreview = useMemo(() => {
@@ -202,14 +188,14 @@ export function AIMealPlanPage() {
 
   function handleAddNutrient() {
     if (!addLabel.trim() || !addTarget) return
-    const key = addLabel.trim().toLowerCase().replace(/\s+/g, '_')
+    const key  = addLabel.trim().toLowerCase().replace(/\s+/g, '_')
     const mode: NutrientItem['mode'] = addUnit === '%' ? 'percent_of_energy' : 'absolute'
     setNutrients((prev) => [...prev, { key, label: addLabel.trim(), target: Number(addTarget), unit: addUnit, mode }])
     setAddLabel(''); setAddTarget(''); setAddUnit('g'); setShowAddForm(false)
   }
 
   function buildInput() {
-    const input = {
+    return {
       period: { from: periodFrom, to: periodTo },
       ...(nutrients.length > 0 && { nutrients }),
       ...(priceEnabled && priceValue && {
@@ -218,9 +204,7 @@ export function AIMealPlanPage() {
       ...(preferences.trim() && { preferences: preferences.split(',').map((s) => s.trim()).filter(Boolean) }),
       ...(excludes.trim()    && { excludes:     excludes.split(',').map((s) => s.trim()).filter(Boolean) }),
       ...(neisAtptCode && neisSchulCode && { neisAtptCode, neisSchulCode }),
-      includeWeekends,
     }
-    return input
   }
 
   async function handleGenerate() {
@@ -235,7 +219,6 @@ export function AIMealPlanPage() {
         setJobStatus(job)
         if (job.status === 'completed') {
           const summaries = job.result?.mealPlans ?? []
-          // 각 plan의 전체 items를 병렬 fetch → 편집 가능 상태로 초기화
           const fullPlans = await Promise.all(summaries.map((s) => getMealById(s.id)))
           setEditablePlans(fullPlans.map((p) => ({
             id:    p.id,
@@ -249,7 +232,7 @@ export function AIMealPlanPage() {
           })))
           return
         }
-        if (job.status === 'failed') { throw new Error(job.error ?? 'AI 식단 생성 job이 실패했습니다.') }
+        if (job.status === 'failed') throw new Error(job.error ?? 'AI 식단 생성 job이 실패했습니다.')
       }
       throw new Error('AI 식단 생성 상태 확인 시간이 초과됐습니다.')
     } catch (e) {
@@ -268,12 +251,10 @@ export function AIMealPlanPage() {
   }
 
   async function handleSaveAll() {
-    setSaving(true)
-    setError(null)
+    setSaving(true); setError(null)
     try {
       await Promise.all(editablePlans.map((p) => updateMeal(p.id, p.items)))
-      setEditablePlans([])
-      navigate('/meals')
+      onSaved()
     } catch (e) {
       setError(apiErrorMsg(e))
     } finally {
@@ -284,48 +265,67 @@ export function AIMealPlanPage() {
   // ── 렌더 ──────────────────────────────────────────────
 
   return (
-    <div style={{ maxWidth: 760 }}>
-      <h5 className="fw-bold mb-4">🤖 AI 식단 자동 생성</h5>
+    <div>
+      {/* 섹션 헤더 */}
+      <div className="d-flex align-items-center justify-content-between mb-3">
+        <h6 className="fw-bold mb-0">🤖 AI 식단 자동 생성</h6>
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-secondary"
+          onClick={onClose}
+        >
+          닫기
+        </button>
+      </div>
 
       {/* ── 기간 & 선호·제외 ── */}
       <Card className="border-0 shadow-sm mb-3">
-        <Card.Header className="bg-white border-bottom fw-semibold py-3 small">기본 조건</Card.Header>
-        <Card.Body>
+        <Card.Header className="bg-white border-bottom fw-semibold py-2 small">기본 조건</Card.Header>
+        <Card.Body className="py-3">
           <Row className="g-3 mb-3">
             <Col xs={12} sm={6}>
               <Form.Label className="small fw-semibold">기간 시작 *</Form.Label>
-              <Form.Control type="date" value={periodFrom} onChange={(e) => setPeriodFrom(e.target.value)} />
+              <Form.Control
+                type="date"
+                value={periodFrom}
+                onChange={(e) => setPeriodFrom(e.target.value)}
+              />
             </Col>
             <Col xs={12} sm={6}>
               <Form.Label className="small fw-semibold">기간 종료 *</Form.Label>
-              <Form.Control type="date" value={periodTo} onChange={(e) => setPeriodTo(e.target.value)} />
+              <Form.Control
+                type="date"
+                value={periodTo}
+                onChange={(e) => setPeriodTo(e.target.value)}
+              />
             </Col>
           </Row>
           <Row className="g-3">
             <Col xs={12} sm={6}>
-              <Form.Label className="small fw-semibold">선호 식재료 (쉼표 구분, 선택)</Form.Label>
-              <Form.Control type="text" placeholder="닭고기, 두부, 브로콜리" value={preferences} onChange={(e) => setPreferences(e.target.value)} />
+              <Form.Label className="small fw-semibold">선호 식재료</Form.Label>
+              <Form.Control
+                size="sm"
+                placeholder="쉼표로 구분 (예: 닭고기, 두부)"
+                value={preferences}
+                onChange={(e) => setPreferences(e.target.value)}
+              />
             </Col>
             <Col xs={12} sm={6}>
-              <Form.Label className="small fw-semibold">제외 식재료 (쉼표 구분, 선택)</Form.Label>
-              <Form.Control type="text" placeholder="돼지고기, 새우" value={excludes} onChange={(e) => setExcludes(e.target.value)} />
+              <Form.Label className="small fw-semibold">제외 식재료</Form.Label>
+              <Form.Control
+                size="sm"
+                placeholder="쉼표로 구분 (예: 돼지고기, 견과류)"
+                value={excludes}
+                onChange={(e) => setExcludes(e.target.value)}
+              />
             </Col>
           </Row>
-          {/* T-145: 주말 포함 여부 */}
-          <Form.Check
-            className="mt-3"
-            type="checkbox"
-            id="include-weekends"
-            label="주말(토·일) 포함"
-            checked={includeWeekends}
-            onChange={(e) => setIncludeWeekends(e.target.checked)}
-          />
         </Card.Body>
       </Card>
 
       {/* ── 영양소 목표 ── */}
       <Card className="border-0 shadow-sm mb-3">
-        <Card.Header className="bg-white border-bottom py-3 d-flex align-items-center justify-content-between">
+        <Card.Header className="bg-white border-bottom py-2 d-flex align-items-center justify-content-between">
           <span className="fw-semibold small">영양소 목표</span>
           <Button
             variant="outline-secondary"
@@ -337,9 +337,9 @@ export function AIMealPlanPage() {
             {defaultsFetching ? <Spinner size="sm" animation="border" /> : '↺ 재계산'}
           </Button>
         </Card.Header>
-        <Card.Body>
+        <Card.Body className="py-2">
           {nutrients.length === 0 && !defaultsFetching && (
-            <p className="text-muted small text-center py-2">영양소 기본값을 불러오는 중...</p>
+            <p className="text-muted small text-center py-2 mb-0">영양소 기본값을 불러오는 중...</p>
           )}
           {nutrients.map((n, idx) => (
             <NutrientRow
@@ -349,8 +349,6 @@ export function AIMealPlanPage() {
               onDelete={() => handleNutrientDelete(idx)}
             />
           ))}
-
-          {/* 항목 추가 */}
           {showAddForm ? (
             <div className="border rounded p-2 mt-2 bg-light">
               <Row className="g-2 align-items-end">
@@ -382,10 +380,10 @@ export function AIMealPlanPage() {
 
       {/* ── NEIS 학교 급식 이력 ── */}
       <Card className="border-0 shadow-sm mb-3">
-        <Card.Header className="bg-white border-bottom fw-semibold py-3 small">
+        <Card.Header className="bg-white border-bottom fw-semibold py-2 small">
           NEIS 학교 급식 이력 참고
         </Card.Header>
-        <Card.Body>
+        <Card.Body className="py-3">
           {schoolDisplayName && (
             <div className="mb-2 d-flex align-items-center gap-2">
               <Badge bg="primary" className="small">{schoolDisplayName}</Badge>
@@ -411,7 +409,7 @@ export function AIMealPlanPage() {
                   <button
                     key={`${s.atptCode}-${s.schoolCode}`}
                     type="button"
-                    className="d-block w-100 text-start px-3 py-2 small border-0 bg-transparent hover-bg-light"
+                    className="d-block w-100 text-start px-3 py-2 small border-0 bg-transparent"
                     onMouseDown={() => handleSelectSchool(s)}
                   >
                     <span className="fw-semibold">{s.name}</span>
@@ -431,7 +429,7 @@ export function AIMealPlanPage() {
 
       {/* ── 단가 제약 ── */}
       <Card className="border-0 shadow-sm mb-4">
-        <Card.Header className="bg-white border-bottom py-3 d-flex align-items-center gap-2">
+        <Card.Header className="bg-white border-bottom py-2 d-flex align-items-center gap-2">
           <Form.Check
             type="switch"
             id="price-toggle"
@@ -442,7 +440,7 @@ export function AIMealPlanPage() {
           />
         </Card.Header>
         {priceEnabled && (
-          <Card.Body>
+          <Card.Body className="py-3">
             <Row className="g-2 align-items-center">
               <Col xs={4} sm={3}>
                 <Form.Select size="sm" value={pricePeriod} onChange={(e) => setPricePeriod(e.target.value as PriceConstraint['period'])}>
@@ -474,7 +472,9 @@ export function AIMealPlanPage() {
 
       {/* ── 오류 / 진행 상태 ── */}
       {error && (
-        <FlashAlert variant="danger" text={error} onClose={() => setError(null)} className="mb-3" />
+        <Alert variant="danger" onClose={() => setError(null)} dismissible className="mb-3">
+          {error}
+        </Alert>
       )}
       {loading && jobStatus && (
         <Alert variant="info" className="mb-3">
@@ -486,17 +486,18 @@ export function AIMealPlanPage() {
       )}
 
       {/* ── 생성 버튼 ── */}
-      <Button className="w-100 py-2 fw-semibold mb-4" onClick={handleGenerate} disabled={loading}>
-        {loading
-          ? <><Spinner animation="border" size="sm" className="me-2" />AI가 식단을 생성 중입니다...</>
-          : '🤖 AI 식단 생성하기'
-        }
-      </Button>
+      {editablePlans.length === 0 && (
+        <Button className="w-100 py-2 fw-semibold mb-4" onClick={handleGenerate} disabled={loading}>
+          {loading
+            ? <><Spinner animation="border" size="sm" className="me-2" />AI가 식단을 생성 중입니다...</>
+            : '🤖 AI 식단 생성하기'}
+        </Button>
+      )}
 
       {/* ── 결과 — 끼니별 카드 그리드 ── */}
       {editablePlans.length > 0 && (
         <Card className="border-0 shadow-sm">
-          <Card.Header className="bg-white border-bottom py-3">
+          <Card.Header className="bg-white border-bottom py-2">
             <span className="fw-semibold">생성 결과</span>
             <Badge bg="success" className="ms-2">
               {editablePlans.length}일치 · 총{' '}
