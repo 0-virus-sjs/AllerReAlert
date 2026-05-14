@@ -41,8 +41,7 @@
   flex: 1;
   height: 2px;
   background: linear-gradient(90deg, #BFDBFE, #C4B5FD);
-  margin: 0 12px;
-  margin-top: -28px;
+  margin: 0 8px;
 }
 
 /* ── Navbar glassmorphism ───────────────────────────── */
