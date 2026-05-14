@@ -8,6 +8,7 @@ import {
   publishMealPlan,
   getMealPlans,
   getMealPlanById,
+  getMealCalendarStatus,
 } from '../services/meal/meal.service'
 import { generateMealPdf } from '../services/meal/pdf.service'
 import { generateMealXlsx } from '../services/meal/xlsx.service'
@@ -22,6 +23,19 @@ const monthRegex   = /^\d{4}-\d{2}$/
 const listQuerySchema = z.object({
   month: z.string().regex(monthRegex, 'month 형식은 YYYY-MM'),
 })
+
+// ── T-151: 영양사 달력 상태 메타데이터 ───────────────
+
+export async function calendarStatusHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { month } = listQuerySchema.parse(req.query)
+    const { orgId } = req.user!
+    const entries = await getMealCalendarStatus(orgId, month)
+    sendSuccess(res, entries)
+  } catch (err) {
+    next(err)
+  }
+}
 
 export async function listMealsHandler(req: Request, res: Response, next: NextFunction) {
   try {

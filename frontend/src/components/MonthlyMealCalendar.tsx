@@ -35,10 +35,14 @@ interface Props {
   onSelectDate: (date: string) => void
   plans: MealPlan[]
   getDayLevel?: (plan: MealPlan) => CalendarDayLevel                // 미지정 시 normal
+  selectMode?: boolean
+  selectedDates?: Set<string>
+  onToggleDateSelect?: (date: string) => void
 }
 
 export function MonthlyMealCalendar(props: Props) {
-  const { month, today, selectedDate, onSelectDate, plans, getDayLevel } = props
+  const { month, today, selectedDate, onSelectDate, plans, getDayLevel,
+          selectMode, selectedDates, onToggleDateSelect } = props
   const cells = getCalendarCells(month)
 
   return (
@@ -94,23 +98,32 @@ export function MonthlyMealCalendar(props: Props) {
           const isSelected = ds === selectedDate
           const isToday = ds === today
           const dayOfWeek = idx % 7
+          const isBulkChecked = selectMode && selectedDates?.has(ds)
 
           const bg = !inMonth
             ? '#F4F1EC'
-            : level === 'danger'
-              ? '#FDDDE8'
-              : level === 'alt'
-                ? '#DAF9DE'
-                : level === 'draft'
-                  ? '#FFFBE6'
-                  : plan
-                    ? '#fff'
-                    : '#FAFEFF'
+            : isBulkChecked
+              ? '#FFFBE6'
+              : level === 'danger'
+                ? '#FDDDE8'
+                : level === 'alt'
+                  ? '#DAF9DE'
+                  : level === 'draft'
+                    ? '#FFFBE6'
+                    : plan
+                      ? '#fff'
+                      : '#FAFEFF'
+
+          function handleClick() {
+            if (!inMonth) return
+            if (selectMode && onToggleDateSelect) onToggleDateSelect(ds)
+            else onSelectDate(ds)
+          }
 
           return (
             <button
               key={idx}
-              onClick={() => inMonth && onSelectDate(ds)}
+              onClick={handleClick}
               disabled={!inMonth}
               type="button"
               style={{
@@ -120,7 +133,7 @@ export function MonthlyMealCalendar(props: Props) {
                 border: 'none',
                 borderRight: dayOfWeek < 6 ? '1px solid #E0DBD4' : 'none',
                 borderBottom: '1px solid #E0DBD4',
-                outline: isSelected ? '2px solid #A8D8E8' : isToday ? '2px solid #5DBD6A' : 'none',
+                outline: isBulkChecked ? '2px solid #E8A820' : isSelected ? '2px solid #A8D8E8' : isToday ? '2px solid #5DBD6A' : 'none',
                 outlineOffset: -2,
                 cursor: inMonth ? 'pointer' : 'default',
                 textAlign: 'left',
@@ -217,6 +230,9 @@ export function MonthlyMealCalendar(props: Props) {
                 <div style={{ fontSize: 8.5, color: '#999' }}>
                   +{plan.items.length - 2}개
                 </div>
+              )}
+              {isBulkChecked && (
+                <span style={{ position: 'absolute', top: 2, right: 4, fontSize: 9, color: '#E8A820', fontWeight: 700 }}>✓</span>
               )}
             </button>
           )

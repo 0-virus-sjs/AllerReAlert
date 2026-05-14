@@ -10,10 +10,6 @@ import { MealItemFormModal } from '../components/meal/MealItemFormModal'
 import { PublishModal } from '../components/meal/PublishModal'
 import { MonthlyMealCalendar, type CalendarDayLevel } from '../components/MonthlyMealCalendar'
 
-type CalendarView = 'calendar' | 'slider'
-
-const KO_DAYS = ['일', '월', '화', '수', '목', '금', '토']
-
 function toDateStr(iso: string): string {
   return iso.slice(0, 10)
 }
@@ -32,10 +28,6 @@ function nextMonth(ym: string): string {
   return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
 }
 
-function getDaysInMonth(ym: string): Date[] {
-  const [y, m] = ym.split('-').map(Number)
-  return Array.from({ length: new Date(y, m, 0).getDate() }, (_, i) => new Date(y, m - 1, i + 1))
-}
 
 function planToInputs(plan: MealPlan | undefined): MealItemInput[] {
   return (
@@ -61,7 +53,6 @@ export function MealPlanPage() {
   const [showAddModal,   setShowAddModal]   = useState(false)
   const [showPublish,    setShowPublish]    = useState(false)
   const [saveMsg,        setSaveMsg]        = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const [view,           setView]           = useState<CalendarView>('calendar')
   const [xlsxLoading,    setXlsxLoading]    = useState(false)
   // T-142: 선택 모드 + 일괄 공개
   const [selectMode,     setSelectMode]     = useState(false)
@@ -139,7 +130,6 @@ export function MealPlanPage() {
     ),
   )
 
-  const days     = getDaysInMonth(month)
   const [y, m]   = month.split('-').map(Number)
   const isSaving = saveMutation.isPending
 
@@ -275,105 +265,25 @@ export function MealPlanPage() {
         />
       )}
 
-      {/* ── 보기 전환 ────────────────────────────────────── */}
-      <div className="d-flex gap-1 mb-2" role="tablist" aria-label="식단 보기 전환">
-        {(['calendar', 'slider'] as const).map((v) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => setView(v)}
-            aria-pressed={view === v}
-            style={{
-              padding: '3px 12px',
-              border: '1.5px solid #A8D8E8',
-              background: view === v ? '#CFECF3' : '#fff',
-              color: '#3A3030',
-              fontSize: 11,
-              borderRadius: 3,
-              cursor: 'pointer',
-            }}
-          >
-            {v === 'calendar' ? '캘린더' : '슬라이더'}
-          </button>
-        ))}
+      {/* ── 달력 ─────────────────────────────────────────── */}
+      <div className="mb-3">
+        <MonthlyMealCalendar
+          month={month}
+          today={todayStr}
+          selectedDate={selectedDate}
+          onSelectDate={selectDate}
+          plans={plans}
+          getDayLevel={(plan): CalendarDayLevel => {
+            const hasConfirmedAlt = plan.alternatePlans.some((ap) => ap.status === 'confirmed')
+            if (hasConfirmedAlt) return 'alt'
+            if (plan.status === 'draft') return 'draft'
+            return 'normal'
+          }}
+          selectMode={selectMode}
+          selectedDates={selectedDates}
+          onToggleDateSelect={toggleDateSelect}
+        />
       </div>
-
-      {/* ── 날짜 선택 영역 (캘린더 / 슬라이더) ─────────────── */}
-      {view === 'calendar' ? (
-        <div className="mb-3">
-          <MonthlyMealCalendar
-            month={month}
-            today={todayStr}
-            selectedDate={selectedDate}
-            onSelectDate={selectDate}
-            plans={plans}
-            getDayLevel={(plan): CalendarDayLevel => {
-              const hasConfirmedAlt = plan.alternatePlans.some((ap) => ap.status === 'confirmed')
-              if (hasConfirmedAlt) return 'alt'
-              if (plan.status === 'draft') return 'draft'
-              return 'normal'
-            }}
-          />
-        </div>
-      ) : (
-        <div
-          className="d-flex gap-1 mb-3 pb-1"
-          style={{ overflowX: 'auto', scrollbarWidth: 'none' }}
-        >
-          {days.map((date) => {
-            const ds          = formatDateStr(date)
-            const plan        = plans.find((p) => toDateStr(p.date) === ds)
-            const isSelected  = ds === selectedDate
-            const isDraft     = plan?.status === 'draft'
-            const isChecked   = selectedDates.has(ds)
-
-            return (
-              <button
-                key={ds}
-                onClick={() => selectMode ? toggleDateSelect(ds) : selectDate(ds)}
-                style={{
-                  padding: '4px 10px 8px',
-                  border: `1.5px solid ${
-                    selectMode && isChecked ? '#E8A820'
-                    : isSelected ? '#A8D8E8'
-                    : '#C0BBB4'
-                  }`,
-                  background: selectMode && isChecked ? '#FFFBE6'
-                    : isSelected ? '#CFECF3'
-                    : '#fff',
-                  color: isSelected ? '#3A3030' : '#888',
-                  fontFamily: 'IBM Plex Mono, monospace',
-                  fontSize: 11,
-                  borderRadius: 3,
-                  flexShrink: 0,
-                  cursor: 'pointer',
-                  position: 'relative',
-                }}
-              >
-                {date.getDate()}({KO_DAYS[date.getDay()]})
-                {plan && (
-                  <span
-                    style={{
-                      position: 'absolute',
-                      bottom: 3,
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      width: 4,
-                      height: 4,
-                      borderRadius: '50%',
-                      background: isDraft ? '#E8A820' : '#5DBD6A',
-                      display: 'block',
-                    }}
-                  />
-                )}
-                {selectMode && isChecked && (
-                  <span style={{ position: 'absolute', top: 1, right: 3, fontSize: 9, color: '#E8A820' }}>✓</span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      )}
 
       {/* ── 메뉴 구성 ────────────────────────────────────── */}
       <div className="d-flex align-items-center gap-2 mb-2">
