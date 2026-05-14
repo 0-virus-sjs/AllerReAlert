@@ -1,27 +1,29 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Alert, Button, Card, Container, Form, Spinner, Tab, Tabs } from 'react-bootstrap'
+import { FlashAlert } from '../components/common/FlashAlert'
 import { useAuthStore } from '../stores/auth.store'
 import { authApi } from '../services/auth.api'
 import type { UserRole } from '../types/auth'
 
-const ROLE_TABS: { key: UserRole; label: string }[] = [
-  { key: 'student',      label: '학생' },
-  { key: 'staff',        label: '교직원' },
-  { key: 'guardian',     label: '보호자' },
-  { key: 'nutritionist', label: '영양사' },
+const ROLE_TABS: { key: UserRole; label: string; allowedRoles: UserRole[] }[] = [
+  { key: 'student',      label: '학생',   allowedRoles: ['student'] },
+  { key: 'staff',        label: '교직원', allowedRoles: ['staff'] },
+  { key: 'guardian',     label: '보호자', allowedRoles: ['guardian'] },
+  { key: 'nutritionist', label: '영양사', allowedRoles: ['nutritionist', 'admin'] },
 ]
 
 export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { setAuth } = useAuthStore()
+  const { setAuth, clearAuth } = useAuthStore()
 
   const signupSuccess = (location.state as { signupSuccess?: boolean } | null)?.signupSuccess ?? false
 
   const [role, setRole] = useState<UserRole>('student')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -37,7 +39,17 @@ export function LoginPage() {
     setLoading(true)
     try {
       const { data } = await authApi.login(email.trim(), password)
-      setAuth(data.data.accessToken, data.data.user)
+      const user = data.data.user
+
+      // T-143: 로그인 응답 직후 탭-역할 매핑 검증
+      const selectedTab = ROLE_TABS.find((t) => t.key === role)!
+      if (!selectedTab.allowedRoles.includes(user.role)) {
+        clearAuth()
+        setError('이 탭에서 로그인할 수 없는 계정입니다.')
+        return
+      }
+
+      setAuth(data.data.accessToken, user)
       navigate('/', { replace: true })
     } catch (err: unknown) {
       const msg =
@@ -80,9 +92,7 @@ export function LoginPage() {
             )}
 
             {error && (
-              <Alert variant="danger" className="py-2 small" onClose={() => setError(null)} dismissible>
-                {error}
-              </Alert>
+              <FlashAlert variant="danger" text={error} onClose={() => setError(null)} />
             )}
 
             <Form onSubmit={handleSubmit} noValidate>
@@ -100,14 +110,25 @@ export function LoginPage() {
 
               <Form.Group className="mb-4">
                 <Form.Label className="small fw-semibold">비밀번호</Form.Label>
-                <Form.Control
-                  type="password"
-                  placeholder="비밀번호 입력"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={loading}
-                  autoComplete="current-password"
-                />
+                <div className="input-group">
+                  <Form.Control
+                    type={showPw ? 'text' : 'password'}
+                    placeholder="비밀번호 입력"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary"
+                    onClick={() => setShowPw((v) => !v)}
+                    tabIndex={-1}
+                    aria-label={showPw ? '비밀번호 숨기기' : '비밀번호 표시'}
+                  >
+                    <i className={`bi bi-eye${showPw ? '-slash' : ''}`} />
+                  </button>
+                </div>
               </Form.Group>
 
               <Button

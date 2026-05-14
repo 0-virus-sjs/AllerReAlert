@@ -18,6 +18,8 @@ export interface MealPlanBuildInput {
   nutrients?: NutrientItem[]             // 동적 영양소 목표 (일 평균)
   perMealPrice?: number                  // 1식당 단가 (원, 정규화 후)
   priceCatalogContext?: string           // T-128 카탈로그 텍스트
+  // T-145
+  includeWeekends?: boolean
 }
 
 // ── AI 출력 JSON 스키마 (T-063 Zod 검증과 1:1 대응) ───────
@@ -45,12 +47,12 @@ function formatDate(d: Date): string {
   return d.toISOString().slice(0, 10)
 }
 
-function getWeekdays(from: Date, to: Date): string[] {
+function getTargetDays(from: Date, to: Date, includeWeekends = false): string[] {
   const days: string[] = []
   const cur = new Date(from)
   while (cur <= to) {
     const dow = cur.getDay()
-    if (dow >= 1 && dow <= 5) days.push(formatDate(cur))   // 월~금
+    if (includeWeekends || (dow >= 1 && dow <= 5)) days.push(formatDate(cur))
     cur.setDate(cur.getDate() + 1)
   }
   return days
@@ -80,7 +82,7 @@ const OUTPUT_FORMAT = `{
  * org_type=school인 경우에만 neisHistory를 컨텍스트로 포함.
  */
 export function buildMealPlanMessages(input: MealPlanBuildInput): AIMessage[] {
-  const weekdays = getWeekdays(input.period.from, input.period.to)
+  const weekdays = getTargetDays(input.period.from, input.period.to, input.includeWeekends ?? false)
 
   const systemPrompt = [
     '당신은 학교·단체 급식 전문 영양사입니다.',
@@ -98,6 +100,7 @@ export function buildMealPlanMessages(input: MealPlanBuildInput): AIMessage[] {
   lines.push(``)
   lines.push(`### 기본 조건`)
   lines.push(`- 대상 날짜: ${weekdays.join(', ')} (${weekdays.length}일)`)
+  if (!input.includeWeekends) lines.push(`- 주말(토·일) 제외 — 위 날짜 목록에 없는 날은 출력하지 마세요.`)
   lines.push(`- 기관 유형: ${input.orgType}`)
 
   // 단가 제약: T-130 perMealPrice 우선, 없으면 legacy budget

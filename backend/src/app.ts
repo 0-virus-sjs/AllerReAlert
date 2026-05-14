@@ -106,6 +106,25 @@ app.use(errorHandler)
 
 app.listen(PORT, () => {
   logger.info(`Server running on port ${PORT}`)
+
+  // T-140: 알림 채널 환경변수 기동 시 점검 (누락이면 경고 — 서버는 정상 기동)
+  const notifChecks: Array<{ key: string; label: string }> = [
+    { key: 'RESEND_API_KEY',    label: 'Resend 이메일' },
+    { key: 'EMAIL_FROM',        label: '발신자 주소 (EMAIL_FROM)' },
+    { key: 'VAPID_PUBLIC_KEY',  label: 'VAPID 공개키' },
+    { key: 'VAPID_PRIVATE_KEY', label: 'VAPID 비밀키' },
+    { key: 'VAPID_SUBJECT',     label: 'VAPID 주체 (VAPID_SUBJECT)' },
+  ]
+  const missing = notifChecks.filter((c) => !process.env[c.key])
+  if (missing.length > 0) {
+    logger.warn(
+      { missing: missing.map((c) => c.key) },
+      `[T-140] 알림 환경변수 누락 — 해당 채널 발송 불가: ${missing.map((c) => c.label).join(', ')}`,
+    )
+  } else {
+    logger.info('[T-140] 알림 환경변수 검증 완료 (이메일·웹 푸시 모두 설정됨)')
+  }
+
   registerBackupJob()
   registerScheduledPublishJob()
   registerAllergenAlertJob()

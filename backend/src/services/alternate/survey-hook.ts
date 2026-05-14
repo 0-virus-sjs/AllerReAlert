@@ -2,59 +2,46 @@ import type { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { logger } from '../../lib/logger'
 
-/**
- * T-070: 대체 식단 확정 → 설문 2단계 자동 생성 (PRD §7.3)
- *
- * Step 1. need_check  — "대체식이 필요한가요?" (해당 알레르기 보유자 대상)
- * Step 2. menu_vote   — "어떤 메뉴를 원하시나요?" (원래 식단 + 대체 후보 포함)
- *
- * deadline: 원래 식단 날짜 하루 전 자정 (조정 가능)
- */
-export async function onAlternatePlanConfirmed(alternatePlanId: string): Promise<void> {
-  try {
-    const plan = await prisma.alternateMealPlan.findUnique({
-      where: { id: alternatePlanId },
-      include: {
-        mealPlan: { select: { id: true, date: true, orgId: true } },
-        targetAllergen: { select: { id: true, code: true, name: true } },
-        items: {
-          include: { replacesItem: { select: { id: true, name: true, category: true } } },
-        },
-      },
-    })
-    if (!plan) {
-      logger.warn({ alternatePlanId }, '[T-070] 대체 식단 미존재 — 설문 생성 생략')
-      return
-    }
+interface DraftSummary {
+  id: string
+  items: Array<{ name: string }>
+}
 
-    // 영양사(createdBy) 찾기 — 설문 생성자로 사용
+/**
+ * T-070 개선: mealPlan당 설문 1쌍만 생성 (후보별이 아님).
+ *
+ * 기존 방식(후보별 onAlternatePlanConfirmed 반복 호출)은
+ * candidates × allergens 조합 수만큼 설문이 복제되는 버그를 유발함.
+ *
+ * - need_check: "대체 식단이 필요하신가요?" (1개)
+ * - menu_vote:  "선호하는 대체 식단을 선택해 주세요." — 각 draft가 하나의 선택지 (1개)
+ * - 마감: 생성 시점 +24시간 (상대 시간)
+ */
+export async function createSurveysForAlternatePlans(
+  mealPlanId: string,
+  drafts: DraftSummary[],
+  orgId: string,
+): Promise<void> {
+  try {
     const nutritionist = await prisma.user.findFirst({
-      where: { orgId: plan.mealPlan.orgId, role: 'nutritionist' },
+      where: { orgId, role: 'nutritionist' },
       select: { id: true },
     })
     if (!nutritionist) {
-      logger.warn({ alternatePlanId }, '[T-070] 영양사 미존재 — 설문 생성 생략')
+      logger.warn({ mealPlanId }, '[T-070] 영양사 미존재 — 설문 생성 생략')
       return
     }
 
-    // 마감: 식단 날짜 하루 전 오후 6시 (UTC)
-    const mealDate = new Date(plan.mealPlan.date)
-    const deadline = new Date(Date.UTC(
-      mealDate.getUTCFullYear(),
-      mealDate.getUTCMonth(),
-      mealDate.getUTCDate() - 1,
-      9, 0, 0,  // 한국 18:00 = UTC 09:00
-    ))
+    // 설문 생성 시점으로부터 24시간 후 마감 (상대 시간)
+    const deadline = new Date(Date.now() + 24 * 60 * 60 * 1000)
 
-    // ── Step 1: need_check 설문 ───────────────────────────
+    // ── Step 1: need_check ────────────────────────────────
     const needCheckOptions: Prisma.InputJsonValue = {
-      allergenCode: plan.targetAllergen.code,
-      allergenName: plan.targetAllergen.name,
       choices: ['필요합니다', '필요하지 않습니다'],
     }
     const needCheck = await prisma.survey.create({
       data: {
-        mealPlanId: plan.mealPlan.id,
+        mealPlanId,
         type: 'need_check',
         options: needCheckOptions,
         deadline,
@@ -62,26 +49,19 @@ export async function onAlternatePlanConfirmed(alternatePlanId: string): Promise
       },
     })
 
-    // ── Step 2: menu_vote 설문 ────────────────────────────
-    const originalItems = plan.items.map((item) => ({
-      id: item.replacesItem.id,
-      name: item.replacesItem.name,
-      isOriginal: true,
-    }))
-    const alternateItems = plan.items.map((item) => ({
-      id: item.id,
-      name: item.name,
-      isOriginal: false,
-    }))
-
+    // ── Step 2: menu_vote ─────────────────────────────────
+    // 각 draft(대체 식단 후보)를 하나의 선택지로 표현
     const menuVoteOptions: Prisma.InputJsonValue = {
-      allergenCode: plan.targetAllergen.code,
-      allergenName: plan.targetAllergen.name,
-      choices: [...originalItems, ...alternateItems],
+      choices: drafts.map((draft, idx) => ({
+        id: draft.id,
+        name: `대체 식단 ${idx + 1}`,
+        summary: draft.items.map((i) => i.name).join(' / '),
+        isOriginal: false,
+      })),
     }
     await prisma.survey.create({
       data: {
-        mealPlanId: plan.mealPlan.id,
+        mealPlanId,
         type: 'menu_vote',
         options: menuVoteOptions,
         deadline,
@@ -89,8 +69,11 @@ export async function onAlternatePlanConfirmed(alternatePlanId: string): Promise
       },
     })
 
-    logger.info({ alternatePlanId, needCheckId: needCheck.id }, '[T-070] 설문 2단계 자동 생성 완료')
+    logger.info(
+      { mealPlanId, needCheckId: needCheck.id, draftCount: drafts.length },
+      '[T-070] 설문 1쌍 생성 완료',
+    )
   } catch (err) {
-    logger.error({ err, alternatePlanId }, '[T-070] 설문 자동 생성 실패')
+    logger.error({ err, mealPlanId }, '[T-070] 설문 자동 생성 실패')
   }
 }

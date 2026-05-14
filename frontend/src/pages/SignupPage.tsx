@@ -4,6 +4,7 @@ import {
   Alert, Button, Card, Col, Container, Form,
   ProgressBar, Row, Spinner,
 } from 'react-bootstrap'
+import { FlashAlert } from '../components/common/FlashAlert'
 import { authApi, type VerifyOrgResponse } from '../services/auth.api'
 import type { UserRole } from '../types/auth'
 
@@ -93,11 +94,12 @@ function StepRegister({ org, onBack }: Step2Props) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
+  const [showPw,    setShowPw]    = useState(false)
+  const [showConfirmPw, setShowConfirmPw] = useState(false)
   const [phone, setPhone] = useState('')
   // 역할별 추가 필드
   const [grade, setGrade] = useState('')
   const [classNo, setClassNo] = useState('')
-  const [studentCode, setStudentCode] = useState('')
   const [gender, setGender] = useState<'' | 'male' | 'female'>('')
   const [certCode, setCertCode] = useState('')
   // 동의
@@ -127,7 +129,6 @@ function StepRegister({ org, onBack }: Step2Props) {
     if (role === 'student') {
       if (!grade) { setError('학년을 선택하세요'); return }
       if (!classNo) { setError('반을 선택하세요'); return }
-      if (!studentCode.trim()) { setError('학번을 입력하세요'); return }
       if (!gender) { setError('성별을 선택하세요'); return }
     }
     if (!privacyAgreed) { setError('개인정보 수집·이용에 동의해야 합니다'); return }
@@ -146,7 +147,6 @@ function StepRegister({ org, onBack }: Step2Props) {
         ...(role === 'student' && {
           grade: Number(grade),
           classNo,
-          studentCode: studentCode.trim(),
           gender: gender as 'male' | 'female',
         }),
         privacyAgreed: true,
@@ -171,9 +171,7 @@ function StepRegister({ org, onBack }: Step2Props) {
       </Alert>
 
       {error && (
-        <Alert variant="danger" className="py-2 small" onClose={() => setError(null)} dismissible>
-          {error}
-        </Alert>
+        <FlashAlert variant="danger" text={error} onClose={() => setError(null)} />
       )}
 
       {/* 역할 선택 */}
@@ -213,13 +211,45 @@ function StepRegister({ org, onBack }: Step2Props) {
       <Row className="g-2 mb-2">
         <Col>
           <Form.Label className="small fw-semibold">비밀번호</Form.Label>
-          <Form.Control size="sm" type="password" placeholder="8자 이상·영문·숫자·특수문자" value={password}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} disabled={loading} />
+          <div className="input-group input-group-sm">
+            <Form.Control
+              type={showPw ? 'text' : 'password'}
+              placeholder="8자 이상·영문·숫자·특수문자"
+              value={password}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+              disabled={loading}
+            />
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={() => setShowPw((v) => !v)}
+              tabIndex={-1}
+              aria-label={showPw ? '비밀번호 숨기기' : '비밀번호 표시'}
+            >
+              <i className={`bi bi-eye${showPw ? '-slash' : ''}`} />
+            </button>
+          </div>
         </Col>
         <Col>
           <Form.Label className="small fw-semibold">비밀번호 확인</Form.Label>
-          <Form.Control size="sm" type="password" placeholder="다시 입력" value={confirmPw}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setConfirmPw(e.target.value)} disabled={loading} />
+          <div className="input-group input-group-sm">
+            <Form.Control
+              type={showConfirmPw ? 'text' : 'password'}
+              placeholder="다시 입력"
+              value={confirmPw}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setConfirmPw(e.target.value)}
+              disabled={loading}
+            />
+            <button
+              type="button"
+              className="btn btn-outline-secondary"
+              onClick={() => setShowConfirmPw((v) => !v)}
+              tabIndex={-1}
+              aria-label={showConfirmPw ? '비밀번호 숨기기' : '비밀번호 표시'}
+            >
+              <i className={`bi bi-eye${showConfirmPw ? '-slash' : ''}`} />
+            </button>
+          </div>
         </Col>
       </Row>
 
@@ -258,17 +288,7 @@ function StepRegister({ org, onBack }: Step2Props) {
             </Col>
           </Row>
           <Row className="g-2 mb-3">
-            <Col xs={7}>
-              <Form.Label className="small fw-semibold">학번</Form.Label>
-              <Form.Control
-                size="sm"
-                placeholder="예: 20250123"
-                value={studentCode}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setStudentCode(e.target.value)}
-                disabled={loading}
-              />
-            </Col>
-            <Col xs={5}>
+            <Col xs={12}>
               <Form.Label className="small fw-semibold">성별</Form.Label>
               <Form.Select
                 size="sm"

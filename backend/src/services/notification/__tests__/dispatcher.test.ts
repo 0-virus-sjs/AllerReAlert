@@ -44,7 +44,10 @@ const PUSH_USER = {
   groupInfo: { notificationSettings: { channels: ['push'] } },
 }
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  vi.useRealTimers()
+})
 
 // ── dispatch ─────────────────────────────────────────────
 
@@ -96,6 +99,46 @@ describe('dispatch', () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue(EMAIL_USER as never)
     vi.mocked(emailAdapter.send).mockRejectedValueOnce(new Error('SMTP 오류'))
     await expect(dispatch(BASE_INPUT)).resolves.toBeUndefined()
+  })
+})
+
+// ── 방해 금지 시간 (quiet hours) ─────────────────────────
+
+describe('dispatch — 방해 금지 시간', () => {
+  const QUIET_USER = {
+    email: 'test@test.com',
+    groupInfo: { notificationSettings: { channels: ['email'], quietHoursStart: '22:00', quietHoursEnd: '07:00' } },
+  }
+
+  it('방해 금지 시간 내이면 발송 생략하고 notification 레코드만 생성한다', async () => {
+    vi.useFakeTimers()
+    // KST 03:00 = UTC 18:00
+    vi.setSystemTime(new Date('2024-01-01T18:00:00Z'))
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(QUIET_USER as never)
+
+    await dispatch(BASE_INPUT)
+
+    expect(emailAdapter.send).not.toHaveBeenCalled()
+    expect(prisma.notification.create).toHaveBeenCalledTimes(1)
+  })
+
+  it('방해 금지 시간 외이면 정상 발송한다', async () => {
+    vi.useFakeTimers()
+    // KST 12:00 = UTC 03:00
+    vi.setSystemTime(new Date('2024-01-01T03:00:00Z'))
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(QUIET_USER as never)
+
+    await dispatch(BASE_INPUT)
+
+    expect(emailAdapter.send).toHaveBeenCalledTimes(1)
+  })
+
+  it('quietHours 미설정이면 항상 발송한다', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(EMAIL_USER as never)
+
+    await dispatch(BASE_INPUT)
+
+    expect(emailAdapter.send).toHaveBeenCalledTimes(1)
   })
 })
 

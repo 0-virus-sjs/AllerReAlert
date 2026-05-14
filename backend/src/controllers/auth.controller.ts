@@ -38,7 +38,6 @@ const signupSchema = z.object({
   // T-122: 학생 전용 필드 (role=student일 때 필수)
   grade: z.number().int().min(1).max(12).optional(),
   classNo: z.string().min(1).max(10).optional(),
-  studentCode: z.string().min(1).max(50).optional(),
   // T-126: 성별 (role=student일 때 필수)
   gender: z.enum(['male', 'female']).optional(),
   privacyAgreed: z.boolean().refine(v => v === true, '개인정보 수집·이용에 동의해야 합니다'),
@@ -50,9 +49,6 @@ const signupSchema = z.object({
   }
   if (!val.classNo) {
     ctx.addIssue({ code: 'custom', path: ['classNo'], message: '반을 입력하세요' })
-  }
-  if (!val.studentCode) {
-    ctx.addIssue({ code: 'custom', path: ['studentCode'], message: '학번을 입력하세요' })
   }
   if (!val.gender) {
     ctx.addIssue({ code: 'custom', path: ['gender'], message: '성별을 선택하세요' })

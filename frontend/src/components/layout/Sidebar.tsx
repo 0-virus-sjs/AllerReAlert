@@ -1,43 +1,51 @@
 import { NavLink } from 'react-router-dom'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
+import {
+  faUtensils, faTriangleExclamation, faClipboardList, faBell,
+  faChild, faGaugeHigh, faCalendarDays, faRobot,
+  faArrowRightArrowLeft, faClipboardCheck,
+  faUsers, faSchool, faBookMedical, faClockRotateLeft,
+} from '@fortawesome/free-solid-svg-icons'
 import type { UserRole } from '../../types/auth'
 
 interface NavItem {
   to: string
   label: string
-  icon: string
+  icon: IconDefinition
 }
 
 const NAV_ITEMS: Record<UserRole, NavItem[]> = {
   student: [
-    { to: '/',            label: '식단 조회',    icon: '🍱' },
-    { to: '/allergens',   label: '알레르기 등록', icon: '⚠️' },
-    { to: '/surveys',     label: '설문·투표',    icon: '📋' },
-    { to: '/notifications', label: '알림',       icon: '🔔' },
+    { to: '/',              label: '식단 조회',    icon: faUtensils },
+    { to: '/allergens',     label: '알레르기 등록', icon: faTriangleExclamation },
+    { to: '/surveys',       label: '설문·투표',    icon: faClipboardList },
+    { to: '/notifications', label: '알림',         icon: faBell },
   ],
   staff: [
-    { to: '/',            label: '식단 조회',    icon: '🍱' },
-    { to: '/allergens',   label: '알레르기 등록', icon: '⚠️' },
-    { to: '/surveys',     label: '설문·투표',    icon: '📋' },
-    { to: '/notifications', label: '알림',       icon: '🔔' },
+    { to: '/',              label: '식단 조회',    icon: faUtensils },
+    { to: '/allergens',     label: '알레르기 등록', icon: faTriangleExclamation },
+    { to: '/surveys',       label: '설문·투표',    icon: faClipboardList },
+    { to: '/notifications', label: '알림',         icon: faBell },
   ],
   guardian: [
-    { to: '/',            label: '식단 조회',    icon: '🍱' },
-    { to: '/children',    label: '자녀 알레르기', icon: '👶' },
-    { to: '/notifications', label: '알림',       icon: '🔔' },
+    { to: '/',              label: '식단 조회',    icon: faUtensils },
+    { to: '/children',      label: '자녀 알레르기', icon: faChild },
+    { to: '/notifications', label: '알림',         icon: faBell },
   ],
   nutritionist: [
-    { to: '/',            label: '대시보드',     icon: '🏠' },
-    { to: '/meals',       label: '식단 관리',    icon: '📝' },
-    { to: '/ai',          label: 'AI 식단 생성', icon: '🤖' },
-    { to: '/alternates',  label: '대체 식단',    icon: '🔄' },
-    { to: '/survey-management', label: '설문 관리', icon: '📋' },
-    { to: '/notifications', label: '알림',       icon: '🔔' },
+    { to: '/',                  label: '대시보드',     icon: faGaugeHigh },
+    { to: '/meals',             label: '식단 관리',    icon: faCalendarDays },
+    { to: '/ai',                label: 'AI 식단 생성', icon: faRobot },
+    { to: '/alternates',        label: '대체 식단',    icon: faArrowRightArrowLeft },
+    { to: '/survey-management', label: '설문 관리',    icon: faClipboardCheck },
+    { to: '/notifications',     label: '알림',         icon: faBell },
   ],
   admin: [
-    { to: '/admin/users',     label: '사용자 관리',     icon: '👥' },
-    { to: '/admin/orgs',      label: '학교 관리',       icon: '🏫' },
-    { to: '/admin/allergens', label: '알레르기 마스터',  icon: '⚠️' },
-    { to: '/admin/logs',      label: '시스템 로그',      icon: '📜' },
+    { to: '/admin/users',     label: '사용자 관리',    icon: faUsers },
+    { to: '/admin/orgs',      label: '학교 관리',      icon: faSchool },
+    { to: '/admin/allergens', label: '알레르기 마스터', icon: faBookMedical },
+    { to: '/admin/logs',      label: '시스템 로그',     icon: faClockRotateLeft },
   ],
 }
 
@@ -50,13 +58,17 @@ export function Sidebar({ role, onClose }: Props) {
   const items = NAV_ITEMS[role] ?? []
 
   return (
-    <nav className="d-flex flex-column bg-white border-end" style={{ width: 220, minHeight: '100%' }}>
-      <div className="p-3 border-bottom d-flex align-items-center justify-content-between">
-        <span className="fw-bold text-primary fs-6">🍽️ AllerReAlert</span>
-        {onClose && (
-          <button className="btn btn-sm btn-light d-md-none" onClick={onClose}>✕</button>
-        )}
-      </div>
+    <nav
+      className="d-flex flex-column bg-white border-end"
+      style={{ width: 220, minHeight: '100%' }}
+    >
+      {onClose && (
+        <div className="p-2 border-bottom d-flex justify-content-end d-md-none">
+          <button className="btn btn-sm btn-light" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+      )}
       <ul className="nav flex-column flex-grow-1 p-2">
         {items.map((item) => (
           <li key={item.to} className="nav-item">
@@ -70,8 +82,15 @@ export function Sidebar({ role, onClose }: Props) {
               }
               onClick={onClose}
             >
-              <span>{item.icon}</span>
-              <span className="small">{item.label}</span>
+              {({ isActive }) => (
+                <>
+                  <FontAwesomeIcon
+                    icon={item.icon}
+                    className={`fa-fw ${isActive ? '' : 'text-primary'}`}
+                  />
+                  <span className="small">{item.label}</span>
+                </>
+              )}
             </NavLink>
           </li>
         ))}

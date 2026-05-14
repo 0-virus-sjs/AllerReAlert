@@ -33,7 +33,6 @@ export interface SignupPayload {
   groupInfo?: Record<string, unknown>
   grade?: number
   classNo?: string
-  studentCode?: string
   gender?: 'male' | 'female'
   privacyAgreed: boolean
   guardianConsentRequired: boolean

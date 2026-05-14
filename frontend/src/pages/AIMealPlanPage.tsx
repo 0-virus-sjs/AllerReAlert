@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Alert, Badge, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap'
+import { FlashAlert } from '../components/common/FlashAlert'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getMealPlanGenerationJob, startMealPlanGeneration } from '../services/ai.api'
 import type { GenerateMealPlanJob, NutrientItem, PriceConstraint } from '../services/ai.api'
 import { fetchMealConditionDefaults, getMealById, updateMeal } from '../services/meals.api'
@@ -86,11 +87,12 @@ function NutrientRow({ item, onChange, onDelete }: NutrientRowProps) {
 
 export function AIMealPlanPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { from: defFrom, to: defTo } = defaultPeriod()
 
-  // 기간
-  const [periodFrom, setPeriodFrom] = useState(defFrom)
-  const [periodTo,   setPeriodTo]   = useState(defTo)
+  // T-144: URL 파라미터(startDate/endDate)가 있으면 우선 사용
+  const [periodFrom, setPeriodFrom] = useState(searchParams.get('startDate') ?? defFrom)
+  const [periodTo,   setPeriodTo]   = useState(searchParams.get('endDate')   ?? defTo)
 
   // 영양소 항목
   const [nutrients,    setNutrients]    = useState<NutrientItem[]>([])
@@ -113,8 +115,9 @@ export function AIMealPlanPage() {
   const [priceValue,    setPriceValue]    = useState('')
 
   // 선호/제외
-  const [preferences, setPreferences] = useState('')
-  const [excludes,    setExcludes]    = useState('')
+  const [preferences,      setPreferences]      = useState('')
+  const [excludes,         setExcludes]         = useState('')
+  const [includeWeekends,  setIncludeWeekends]  = useState(false)
 
   // 실행 상태
   const [loading,       setLoading]       = useState(false)
@@ -215,6 +218,7 @@ export function AIMealPlanPage() {
       ...(preferences.trim() && { preferences: preferences.split(',').map((s) => s.trim()).filter(Boolean) }),
       ...(excludes.trim()    && { excludes:     excludes.split(',').map((s) => s.trim()).filter(Boolean) }),
       ...(neisAtptCode && neisSchulCode && { neisAtptCode, neisSchulCode }),
+      includeWeekends,
     }
     return input
   }
@@ -307,6 +311,15 @@ export function AIMealPlanPage() {
               <Form.Control type="text" placeholder="돼지고기, 새우" value={excludes} onChange={(e) => setExcludes(e.target.value)} />
             </Col>
           </Row>
+          {/* T-145: 주말 포함 여부 */}
+          <Form.Check
+            className="mt-3"
+            type="checkbox"
+            id="include-weekends"
+            label="주말(토·일) 포함"
+            checked={includeWeekends}
+            onChange={(e) => setIncludeWeekends(e.target.checked)}
+          />
         </Card.Body>
       </Card>
 
@@ -461,9 +474,7 @@ export function AIMealPlanPage() {
 
       {/* ── 오류 / 진행 상태 ── */}
       {error && (
-        <Alert variant="danger" onClose={() => setError(null)} dismissible className="mb-3">
-          {error}
-        </Alert>
+        <FlashAlert variant="danger" text={error} onClose={() => setError(null)} className="mb-3" />
       )}
       {loading && jobStatus && (
         <Alert variant="info" className="mb-3">

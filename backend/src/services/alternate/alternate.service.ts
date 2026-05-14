@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { cache, CacheKey, invalidateMealCache, invalidateOrgAnalyticsCache } from '../../lib/cache'
 import { AppError } from '../../middlewares/errorHandler'
-import { onAlternatePlanConfirmed } from './survey-hook'
+import { createSurveysForAlternatePlans } from './survey-hook'
 
 export interface AlternateItemInput {
   replacesItemId: string
@@ -98,10 +98,8 @@ export async function saveAlternatePlans(mealPlanId: string, userId: string, org
     return { action: 'confirmed' as const, plans: [confirmed] }
   }
 
-  // 2개 이상: 각 후보별로 설문 2단계 자동 생성 (status는 draft 유지)
-  for (const draft of drafts) {
-    await onAlternatePlanConfirmed(draft.id)
-  }
+  // 2개 이상: mealPlan당 설문 1쌍만 생성 (후보별 반복 호출 금지 — 설문 폭발 방지)
+  await createSurveysForAlternatePlans(mealPlanId, drafts, orgId)
   invalidateMealCache(orgId)
   cache.del(CacheKey.mealDetail(mealPlanId))
 
@@ -132,9 +130,6 @@ export async function confirmAlternatePlan(id: string, userId: string, orgId: st
   cache.del(CacheKey.mealDetail(plan.mealPlanId))
   // 확정된 대체식이 월간 리포트(report)에 가산되므로 analytics 캐시도 무효화
   invalidateOrgAnalyticsCache(plan.mealPlan.orgId)
-
-  // T-070 트리거: 설문 자동 생성 (M7에서 구현)
-  await onAlternatePlanConfirmed(id)
 
   return confirmed
 }

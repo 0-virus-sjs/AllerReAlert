@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Navbar, Nav, Dropdown } from 'react-bootstrap'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { faBars, faBell } from '@fortawesome/free-solid-svg-icons'
 import { useAuthStore } from '../../stores/auth.store'
 import { api } from '../../services/api'
 
@@ -33,27 +35,25 @@ export function Header({ onMenuToggle }: Props) {
   }
 
   return (
-    <Navbar bg="white" className="border-bottom px-3 py-2 d-flex align-items-center">
+    <Navbar bg="white" className="border-bottom px-3 py-2 fixed-top shadow-sm">
       {/* 모바일 햄버거 */}
       <button
         className="btn btn-light d-md-none me-2"
         onClick={onMenuToggle}
         aria-label="메뉴 열기"
       >
-        ☰
+        <FontAwesomeIcon icon={faBars} />
       </button>
 
-      <span className="fw-semibold d-md-none text-primary">🍽️ AllerReAlert</span>
-
-      <Nav className="ms-auto d-flex align-items-center gap-3">
+      <Nav className="d-flex align-items-center gap-3 ms-auto">
         {/* 알림 아이콘 */}
         <button
           className="btn btn-light position-relative"
           onClick={() => navigate('/notifications')}
           aria-label="알림"
         >
-          🔔
-        </button>
+          <FontAwesomeIcon icon={faBell} />
+</button>
 
         {/* 프로필 드롭다운 */}
         <Dropdown align="end">

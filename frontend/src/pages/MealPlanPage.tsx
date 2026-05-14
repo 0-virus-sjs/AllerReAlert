@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Alert, Spinner } from 'react-bootstrap'
-import { getMeals, createMeal, updateMeal, publishMeal } from '../services/meals.api'
+import { Spinner } from 'react-bootstrap'
+import { FlashAlert } from '../components/common/FlashAlert'
+import { getMeals, createMeal, updateMeal, publishMeal, exportMealXlsx } from '../services/meals.api'
 import type { MealItemInput, MealPlan } from '../types/meal'
 import { MealItemRow } from '../components/meal/MealItemRow'
 import { MealItemFormModal } from '../components/meal/MealItemFormModal'
@@ -60,7 +62,13 @@ export function MealPlanPage() {
   const [showPublish,    setShowPublish]    = useState(false)
   const [saveMsg,        setSaveMsg]        = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [view,           setView]           = useState<CalendarView>('calendar')
+  const [xlsxLoading,    setXlsxLoading]    = useState(false)
+  // T-142: 선택 모드 + 일괄 공개
+  const [selectMode,     setSelectMode]     = useState(false)
+  const [selectedDates,  setSelectedDates]  = useState<Set<string>>(new Set())
+  const [bulkPublishing, setBulkPublishing] = useState(false)
 
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const { data: plans = [], isLoading } = useQuery({
@@ -135,6 +143,62 @@ export function MealPlanPage() {
   const [y, m]   = month.split('-').map(Number)
   const isSaving = saveMutation.isPending
 
+  async function handleExportXlsx() {
+    setXlsxLoading(true)
+    try {
+      await exportMealXlsx(month)
+    } catch {
+      setSaveMsg({ type: 'error', text: '엑셀 다운로드에 실패했습니다.' })
+    } finally {
+      setXlsxLoading(false)
+    }
+  }
+
+  // T-142: 선택 모드 토글
+  function toggleSelectMode() {
+    setSelectMode((prev) => !prev)
+    setSelectedDates(new Set())
+  }
+
+  function toggleDateSelect(ds: string) {
+    setSelectedDates((prev) => {
+      const next = new Set(prev)
+      if (next.has(ds)) { next.delete(ds) } else { next.add(ds) }
+      return next
+    })
+  }
+
+  // T-142: 선택된 날짜 중 draft 식단만 순차 공개
+  async function handleBulkPublish() {
+    const draftPlans = plans.filter(
+      (p) => selectedDates.has(toDateStr(p.date)) && p.status === 'draft',
+    )
+    if (draftPlans.length === 0) return
+    setBulkPublishing(true)
+    try {
+      for (const plan of draftPlans) {
+        await publishMeal(plan.id)
+      }
+      queryClient.invalidateQueries({ queryKey: ['meals', month] })
+      setSaveMsg({ type: 'success', text: `${draftPlans.length}개 식단이 공개되었습니다.` })
+      setTimeout(() => setSaveMsg(null), 3000)
+    } catch {
+      setSaveMsg({ type: 'error', text: '일괄 공개에 실패했습니다.' })
+    } finally {
+      setBulkPublishing(false)
+      setSelectMode(false)
+      setSelectedDates(new Set())
+    }
+  }
+
+  // T-144: 선택된 날짜의 min/max로 AIMealPlanPage 이동
+  function handleAiDraft() {
+    const sorted = Array.from(selectedDates).sort()
+    const startDate = sorted[0]
+    const endDate   = sorted[sorted.length - 1]
+    navigate(`/ai-meal-plan?startDate=${startDate}&endDate=${endDate}`)
+  }
+
   return (
     <div className="p-4">
       {/* ── 헤더 ─────────────────────────────────────────── */}
@@ -149,11 +213,41 @@ export function MealPlanPage() {
           <button
             className="btn btn-sm"
             style={{ border: '1px solid #E88FAA', color: '#C06080' }}
-            disabled
-            title="AI 초안 생성은 SCR-011(T-067)에서 구현 예정"
+            disabled={selectedDates.size === 0}
+            title={selectedDates.size === 0 ? '날짜를 선택하면 AI 초안 생성이 활성화됩니다' : 'AI 식단 초안 생성'}
+            onClick={handleAiDraft}
           >
             AI 초안 생성
           </button>
+          <button
+            className="btn btn-sm btn-outline-success"
+            onClick={handleExportXlsx}
+            disabled={xlsxLoading}
+            title="이달 식단 엑셀 다운로드"
+          >
+            {xlsxLoading ? <Spinner size="sm" animation="border" /> : '📊 엑셀 저장'}
+          </button>
+          {/* T-142: 선택 모드 토글 */}
+          {selectMode ? (
+            <>
+              <button
+                className="btn btn-sm btn-warning"
+                onClick={handleBulkPublish}
+                disabled={selectedDates.size === 0 || bulkPublishing}
+              >
+                {bulkPublishing
+                  ? <Spinner size="sm" animation="border" />
+                  : `일괄 공개 (${selectedDates.size})`}
+              </button>
+              <button className="btn btn-sm btn-outline-secondary" onClick={toggleSelectMode}>
+                취소
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-sm btn-outline-secondary" onClick={toggleSelectMode}>
+              선택
+            </button>
+          )}
           <button
             className="btn btn-sm btn-outline-secondary"
             onClick={() => saveMutation.mutate()}
@@ -173,14 +267,12 @@ export function MealPlanPage() {
       </div>
 
       {saveMsg && (
-        <Alert
+        <FlashAlert
           variant={saveMsg.type === 'success' ? 'success' : 'danger'}
-          className="py-2 mb-3 small"
+          text={saveMsg.text}
           onClose={() => setSaveMsg(null)}
-          dismissible
-        >
-          {saveMsg.text}
-        </Alert>
+          className="mb-3"
+        />
       )}
 
       {/* ── 보기 전환 ────────────────────────────────────── */}
@@ -217,7 +309,9 @@ export function MealPlanPage() {
             plans={plans}
             getDayLevel={(plan): CalendarDayLevel => {
               const hasConfirmedAlt = plan.alternatePlans.some((ap) => ap.status === 'confirmed')
-              return hasConfirmedAlt ? 'alt' : 'normal'
+              if (hasConfirmedAlt) return 'alt'
+              if (plan.status === 'draft') return 'draft'
+              return 'normal'
             }}
           />
         </div>
@@ -227,18 +321,26 @@ export function MealPlanPage() {
           style={{ overflowX: 'auto', scrollbarWidth: 'none' }}
         >
           {days.map((date) => {
-            const ds         = formatDateStr(date)
-            const isSelected = ds === selectedDate
-            const hasPlan    = plans.some((p) => toDateStr(p.date) === ds)
+            const ds          = formatDateStr(date)
+            const plan        = plans.find((p) => toDateStr(p.date) === ds)
+            const isSelected  = ds === selectedDate
+            const isDraft     = plan?.status === 'draft'
+            const isChecked   = selectedDates.has(ds)
 
             return (
               <button
                 key={ds}
-                onClick={() => selectDate(ds)}
+                onClick={() => selectMode ? toggleDateSelect(ds) : selectDate(ds)}
                 style={{
                   padding: '4px 10px 8px',
-                  border: `1.5px solid ${isSelected ? '#A8D8E8' : '#C0BBB4'}`,
-                  background: isSelected ? '#CFECF3' : '#fff',
+                  border: `1.5px solid ${
+                    selectMode && isChecked ? '#E8A820'
+                    : isSelected ? '#A8D8E8'
+                    : '#C0BBB4'
+                  }`,
+                  background: selectMode && isChecked ? '#FFFBE6'
+                    : isSelected ? '#CFECF3'
+                    : '#fff',
                   color: isSelected ? '#3A3030' : '#888',
                   fontFamily: 'IBM Plex Mono, monospace',
                   fontSize: 11,
@@ -249,7 +351,7 @@ export function MealPlanPage() {
                 }}
               >
                 {date.getDate()}({KO_DAYS[date.getDay()]})
-                {hasPlan && (
+                {plan && (
                   <span
                     style={{
                       position: 'absolute',
@@ -259,10 +361,13 @@ export function MealPlanPage() {
                       width: 4,
                       height: 4,
                       borderRadius: '50%',
-                      background: '#5DBD6A',
+                      background: isDraft ? '#E8A820' : '#5DBD6A',
                       display: 'block',
                     }}
                   />
+                )}
+                {selectMode && isChecked && (
+                  <span style={{ position: 'absolute', top: 1, right: 3, fontSize: 9, color: '#E8A820' }}>✓</span>
                 )}
               </button>
             )

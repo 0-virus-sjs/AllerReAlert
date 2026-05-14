@@ -38,6 +38,8 @@ const generateSchema = z.object({
   // T-130
   nutrients:       z.array(nutrientItemSchema).optional(),
   priceConstraint: priceConstraintSchema.optional(),
+  // T-145
+  includeWeekends: z.boolean().optional(),
 })
 
 export async function generateMealPlanHandler(req: Request, res: Response, next: NextFunction) {

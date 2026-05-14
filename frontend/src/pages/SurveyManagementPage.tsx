@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Alert, Spinner, Badge, Modal, Button } from 'react-bootstrap'
+import { FlashAlert } from '../components/common/FlashAlert'
 import { getSurveys, closeSurvey } from '../services/surveys.api'
 import type { Survey, SurveyResult } from '../services/surveys.api'
 
@@ -37,8 +38,9 @@ function ResultBars({
 }) {
   const labelMap: Record<string, string> = {}
 
-  // need_check choices
+  // need_check choices (서버가 string[] 또는 {key,label}[]로 전송)
   for (const c of options.choices ?? []) {
+    if (typeof c === 'string') { labelMap[c] = c; continue }
     if (c.key) labelMap[c.key] = c.label ?? c.key
   }
   // menu_vote items
@@ -158,9 +160,7 @@ function SurveyDetailModal({
       </Modal.Header>
       <Modal.Body>
         {closeMsg && (
-          <Alert variant="danger" onClose={() => setCloseMsg(null)} dismissible className="py-2">
-            {closeMsg}
-          </Alert>
+          <FlashAlert variant="danger" text={closeMsg} onClose={() => setCloseMsg(null)} className="mb-3" />
         )}
 
         {result && (

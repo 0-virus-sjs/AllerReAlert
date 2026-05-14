@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Alert, Spinner, Badge } from 'react-bootstrap'
+
 import { getSurveys, submitResponse } from '../services/surveys.api'
-import type { Survey, SurveyOptionItem } from '../services/surveys.api'
+import type { Survey, SurveyOptions, SurveyOptionItem } from '../services/surveys.api'
+import { FlashAlert } from '../components/common/FlashAlert'
 
 // ── 카운트다운 타이머 ─────────────────────────────────────
 
@@ -32,15 +34,55 @@ function CountdownTimer({ deadline }: { deadline: string }) {
   )
 }
 
-// ── 설문 카드 ─────────────────────────────────────────────
+// ── 선택지 파싱 헬퍼 ──────────────────────────────────────
+//
+// 서버가 need_check의 choices를 string[], menu_vote의 choices를 {id,name}[]로 전송함.
+// FE 타입(SurveyOptionItem[])과 불일치하므로 정규화.
 
-function SurveyCard({ survey }: { survey: Survey }) {
+type RawChoice = SurveyOptionItem | string
+
+function parseNeedCheckChoices(opts: SurveyOptions): Array<{ key: string; label: string }> {
+  if (!opts.choices?.length) {
+    return [
+      { key: 'yes', label: '네, 필요합니다' },
+      { key: 'no',  label: '아니요, 괜찮습니다' },
+    ]
+  }
+  return (opts.choices as RawChoice[]).map(c => {
+    if (typeof c === 'string') return { key: c, label: c }
+    const key   = c.key   ?? c.id    ?? ''
+    const label = c.label ?? c.name  ?? key
+    return { key, label }
+  })
+}
+
+function parseMenuItems(opts: SurveyOptions): Array<{ id: string; name: string; summary: string }> {
+  // 자동 생성 설문은 items 없이 choices에 {id,name,summary}[]을 담음
+  const raw = opts.items?.length
+    ? (opts.items as RawChoice[])
+    : ((opts.choices ?? []) as RawChoice[])
+  return raw
+    .map(c => {
+      if (typeof c === 'string') return { id: c, name: c, summary: '' }
+      return { id: c.id ?? c.key ?? '', name: c.name ?? c.label ?? '', summary: c.summary ?? '' }
+    })
+    .filter(item => item.id)
+}
+
+// ── 설문 내용 (카드 래퍼 없이) ───────────────────────────
+
+interface SurveyContentProps {
+  survey:      Survey
+  onAnswered?: (choice: string) => void
+}
+
+function SurveyContent({ survey, onAnswered }: SurveyContentProps) {
   const queryClient = useQueryClient()
-  const myResponse  = survey.responses[0]   // 본인 응답만 반환됨
+  const myResponse  = survey.responses[0]
   const isClosed    = survey.status === 'closed' || new Date(survey.deadline) < new Date()
-  const opts        = survey.options
+  const opts        = survey.options as SurveyOptions
 
-  const [selected, setSelected] = useState<string>(
+  const [selected, setSelected]   = useState<string>(
     myResponse?.votedItemId ?? (myResponse?.response?.choice as string) ?? '',
   )
   const [submitMsg, setSubmitMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -53,44 +95,37 @@ function SurveyCard({ survey }: { survey: Survey }) {
         votedItemId: isVote ? choice : undefined,
       })
     },
-    onSuccess: () => {
+    onSuccess: (_data, choice) => {
       setSubmitMsg({ ok: true, text: '응답이 저장됐습니다.' })
       queryClient.invalidateQueries({ queryKey: ['surveys'] })
+      if (survey.type === 'need_check') onAnswered?.(choice)
     },
     onError: (e: { response?: { data?: { message?: string } } }) => {
       setSubmitMsg({ ok: false, text: e?.response?.data?.message ?? '저장에 실패했습니다.' })
     },
   })
 
-  const typeLabel  = survey.type === 'need_check' ? '필요 여부 확인' : '메뉴 투표'
-  const typeBadge  = survey.type === 'need_check' ? 'info' : 'primary'
-  const dateStr    = survey.mealPlan.date.slice(0, 10)
-
-  // need_check 선택지
-  const needCheckChoices: SurveyOptionItem[] = opts.choices?.length
-    ? opts.choices
-    : [{ key: 'yes', label: '네, 필요합니다' }, { key: 'no', label: '아니요, 괜찮습니다' }]
-
-  // menu_vote 항목
-  const menuItems: SurveyOptionItem[] = opts.items ?? []
+  const typeLabel        = survey.type === 'need_check' ? '필요 여부 확인' : '메뉴 투표'
+  const typeBadge        = survey.type === 'need_check' ? 'info' : 'primary'
+  const needCheckChoices = survey.type === 'need_check' ? parseNeedCheckChoices(opts) : []
+  const menuItems        = survey.type === 'menu_vote'  ? parseMenuItems(opts)        : []
 
   return (
-    <div className="card border-0 shadow-sm mb-3">
-      <div className="card-header bg-white d-flex justify-content-between align-items-center py-3">
-        <div className="d-flex align-items-center gap-2">
-          <Badge bg={typeBadge}>{typeLabel}</Badge>
-          <span className="small text-muted">식단일: {dateStr}</span>
-        </div>
+    <>
+      {/* 타입 뱃지 + 상태 표시 */}
+      <div className="d-flex justify-content-between align-items-center px-3 py-3">
+        <Badge bg={typeBadge}>{typeLabel}</Badge>
         <div className="d-flex align-items-center gap-3">
           {!isClosed && <CountdownTimer deadline={survey.deadline} />}
-          {isClosed && <Badge bg="secondary">마감</Badge>}
+          {isClosed  && <Badge bg="secondary">마감</Badge>}
           {myResponse && !isClosed && (
             <span className="small text-success">✓ 응답 완료 (변경 가능)</span>
           )}
         </div>
       </div>
 
-      <div className="card-body">
+      {/* 질문 + 선택지 */}
+      <div className="px-3 pb-3">
         <p className="fw-semibold mb-3">
           {opts.question ?? (survey.type === 'need_check'
             ? '대체 식단이 필요하신가요?'
@@ -98,73 +133,91 @@ function SurveyCard({ survey }: { survey: Survey }) {
         </p>
 
         {submitMsg && (
-          <Alert
+          <FlashAlert
             variant={submitMsg.ok ? 'success' : 'danger'}
+            text={submitMsg.text}
             onClose={() => setSubmitMsg(null)}
-            dismissible
-            className="py-2"
-          >
-            {submitMsg.text}
-          </Alert>
+            className="mb-3"
+          />
         )}
 
         {/* need_check: Yes / No 버튼 */}
         {survey.type === 'need_check' && (
           <div className="d-flex gap-2 flex-wrap">
-            {needCheckChoices.map((c) => {
-              const key = c.key ?? c.id ?? ''
+            {needCheckChoices.map(({ key, label }) => {
               const isSelected = selected === key
               return (
                 <button
                   key={key}
-                  className={`btn ${isSelected ? 'btn-primary' : 'btn-outline-primary'}`}
+                  className={`btn btn-lg ${isSelected ? 'btn-primary' : 'btn-outline-primary'}`}
                   disabled={isClosed || isPending}
-                  onClick={() => {
-                    setSelected(key)
-                    mutate(key)
-                  }}
+                  onClick={() => { setSelected(key); mutate(key) }}
                 >
                   {isPending && isSelected
                     ? <Spinner animation="border" size="sm" />
-                    : c.label ?? key}
+                    : label}
                 </button>
               )
             })}
           </div>
         )}
 
-        {/* menu_vote: 라디오 목록 */}
+        {/* menu_vote: 가로 식단 카드 */}
         {survey.type === 'menu_vote' && (
-          <div className="d-flex flex-column gap-2">
-            {menuItems.map((item) => {
-              const id  = item.id ?? item.key ?? ''
-              const lbl = item.name ?? item.label ?? id
-              const checked = selected === id
-              return (
-                <label
-                  key={id}
-                  className={`d-flex align-items-center gap-3 p-3 rounded border cursor-pointer ${
-                    checked ? 'border-primary bg-primary bg-opacity-10' : 'border-light'
-                  } ${isClosed ? 'opacity-50' : ''}`}
-                  style={{ cursor: isClosed ? 'default' : 'pointer' }}
-                >
-                  <input
-                    type="radio"
-                    name={`survey-${survey.id}`}
-                    value={id}
-                    checked={checked}
-                    disabled={isClosed || isPending}
-                    onChange={() => setSelected(id)}
-                    className="form-check-input mt-0"
-                  />
-                  <span>{lbl}</span>
-                </label>
-              )
-            })}
+          <div>
+            {menuItems.length === 0 && (
+              <p className="text-muted small mb-0">표시할 메뉴 후보가 없습니다.</p>
+            )}
+            <div className="d-flex gap-3 overflow-auto pb-1">
+              {menuItems.map(({ id, name, summary }) => {
+                const checked = selected === id
+                const menuLines = summary ? summary.split(' / ') : []
+                return (
+                  <div
+                    key={id}
+                    className={`card flex-shrink-0 ${isClosed ? 'opacity-50' : ''}`}
+                    style={{
+                      minWidth: 150,
+                      maxWidth: 200,
+                      cursor:      isClosed ? 'default' : 'pointer',
+                      border:      `2px solid ${checked ? '#0d6efd' : '#dee2e6'}`,
+                      background:  checked ? '#f0f5ff' : '#fff',
+                      transition:  'border-color 0.15s, background 0.15s',
+                    }}
+                    onClick={() => !isClosed && !isPending && setSelected(id)}
+                  >
+                    <div className="card-body p-3">
+                      <div className="d-flex align-items-center gap-2 mb-2">
+                        <input
+                          type="radio"
+                          name={`survey-${survey.id}`}
+                          value={id}
+                          checked={checked}
+                          disabled={isClosed || isPending}
+                          onChange={() => setSelected(id)}
+                          className="form-check-input mt-0 flex-shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <span className="fw-semibold small">{name}</span>
+                      </div>
+                      {menuLines.length > 0 && (
+                        <ul className="list-unstyled mb-0 ps-1">
+                          {menuLines.map((item, i) => (
+                            <li key={i} className="small text-muted" style={{ lineHeight: 1.6 }}>
+                              • {item}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
 
             {!isClosed && menuItems.length > 0 && (
               <button
-                className="btn btn-primary mt-2 align-self-start"
+                className="btn btn-primary mt-3"
                 disabled={!selected || isPending}
                 onClick={() => selected && mutate(selected)}
               >
@@ -174,6 +227,78 @@ function SurveyCard({ survey }: { survey: Survey }) {
           </div>
         )}
       </div>
+    </>
+  )
+}
+
+// ── 단독 설문 카드 ────────────────────────────────────────
+
+function SurveyCard({ survey }: { survey: Survey }) {
+  const dateStr = survey.mealPlan.date.slice(0, 10)
+  return (
+    <div className="card border-0 shadow-sm mb-3">
+      <div className="px-3 py-2 border-bottom bg-white">
+        <span className="small text-muted">식단일: {dateStr}</span>
+      </div>
+      <SurveyContent survey={survey} />
+    </div>
+  )
+}
+
+// ── 그룹 카드 (need_check → menu_vote 슬라이드) ───────────
+//
+// 같은 식단에 묶인 두 설문을 카드 넘기듯 순서대로 표시.
+// need_check에 응답하면 menu_vote 카드로 자동 전환.
+
+function SurveyGroupCard({ needCheck, menuVote }: { needCheck: Survey; menuVote: Survey }) {
+  const [step, setStep] = useState<0 | 1>(0)
+  const dateStr = needCheck.mealPlan.date.slice(0, 10)
+
+  // need_check 첫 번째 선택지(필요합니다)에 응답했을 때만 menu_vote로 이동
+  const needCheckChoices = parseNeedCheckChoices(needCheck.options as SurveyOptions)
+  const yesKey = needCheckChoices[0]?.key ?? '필요합니다'
+
+  return (
+    <div className="card border-0 shadow-sm mb-3">
+      {/* 그룹 헤더 */}
+      <div className="px-3 py-2 border-bottom bg-white d-flex justify-content-between align-items-center">
+        <span className="small text-muted">식단일: {dateStr}</span>
+        {step === 1 && <span className="small fw-semibold text-primary">메뉴 선택</span>}
+      </div>
+
+      {/* 슬라이딩 영역 */}
+      <div style={{ overflow: 'hidden' }}>
+        <div
+          style={{
+            display:    'flex',
+            width:      '200%',
+            transform:  step === 0 ? 'translateX(0)' : 'translateX(-50%)',
+            transition: 'transform 0.45s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        >
+          <div style={{ width: '50%', minWidth: 0 }}>
+            <SurveyContent
+              survey={needCheck}
+              onAnswered={(choice) => { if (choice === yesKey) setStep(1) }}
+            />
+          </div>
+          <div style={{ width: '50%', minWidth: 0 }}>
+            <SurveyContent survey={menuVote} />
+          </div>
+        </div>
+      </div>
+
+      {/* step 2에서 이전 질문으로 돌아가기 */}
+      {step === 1 && (
+        <div className="px-3 pb-2 pt-1 border-top">
+          <button
+            className="btn btn-sm btn-link text-muted p-0 text-decoration-none"
+            onClick={() => setStep(0)}
+          >
+            ← 이전 질문으로
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -189,9 +314,16 @@ export function SurveyPage() {
     staleTime: 30_000,
   })
 
-  const open   = surveys.filter((s) => s.status === 'open' && new Date(s.deadline) > new Date())
-  const closed = surveys.filter((s) => s.status === 'closed' || new Date(s.deadline) <= new Date())
-  const list   = tab === 'open' ? open : closed
+  const now    = new Date()
+  const open   = surveys.filter(s => s.status === 'open' && new Date(s.deadline) > now)
+  const closed = surveys.filter(s => s.status === 'closed' || new Date(s.deadline) <= now)
+
+  // open 설문을 mealPlanId로 그룹화
+  const openGroups = new Map<string, Survey[]>()
+  for (const s of open) {
+    if (!openGroups.has(s.mealPlanId)) openGroups.set(s.mealPlanId, [])
+    openGroups.get(s.mealPlanId)!.push(s)
+  }
 
   if (isLoading) return (
     <div className="d-flex justify-content-center py-5">
@@ -230,12 +362,36 @@ export function SurveyPage() {
         </li>
       </ul>
 
-      {list.length === 0 ? (
-        <div className="text-center text-muted py-5">
-          {tab === 'open' ? '진행 중인 설문이 없습니다.' : '마감된 설문이 없습니다.'}
-        </div>
-      ) : (
-        list.map((s) => <SurveyCard key={s.id} survey={s} />)
+      {/* 진행 중 탭 — mealPlan 단위로 그룹화 */}
+      {tab === 'open' && (
+        openGroups.size === 0 ? (
+          <div className="text-center text-muted py-5">진행 중인 설문이 없습니다.</div>
+        ) : (
+          Array.from(openGroups.entries()).map(([mealPlanId, group]) => {
+            const needCheck = group.find(s => s.type === 'need_check')
+            const menuVote  = group.find(s => s.type === 'menu_vote')
+            if (needCheck && menuVote) {
+              return (
+                <SurveyGroupCard
+                  key={mealPlanId}
+                  needCheck={needCheck}
+                  menuVote={menuVote}
+                />
+              )
+            }
+            const single = needCheck ?? menuVote!
+            return <SurveyCard key={single.id} survey={single} />
+          })
+        )
+      )}
+
+      {/* 마감됨 탭 — 개별 카드 */}
+      {tab === 'closed' && (
+        closed.length === 0 ? (
+          <div className="text-center text-muted py-5">마감된 설문이 없습니다.</div>
+        ) : (
+          closed.map(s => <SurveyCard key={s.id} survey={s} />)
+        )
       )}
     </div>
   )

@@ -28,7 +28,6 @@ export interface SignupInput {
   groupInfo?: Record<string, unknown>
   grade?: number
   classNo?: string
-  studentCode?: string
   gender?: Gender
   privacyAgreed: boolean
   guardianConsentRequired: boolean
@@ -76,7 +75,6 @@ export async function signup(input: SignupInput) {
       // T-122: student 역할일 때만 학년/반/학번 매핑
       grade: isStudent ? input.grade : null,
       classNo: isStudent ? input.classNo : null,
-      studentCode: isStudent ? input.studentCode : null,
       // T-126: student 역할일 때만 gender 매핑
       gender: isStudent ? input.gender : null,
       linkCode,

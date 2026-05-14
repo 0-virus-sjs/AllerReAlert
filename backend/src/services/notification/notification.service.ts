@@ -52,6 +52,17 @@ export interface NotificationSettings {
   quietHoursEnd?: string
 }
 
+export async function getNotificationSettings(userId: string): Promise<NotificationSettings> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { groupInfo: true },
+  })
+  if (!user) throw new AppError(404, 'NOT_FOUND', '사용자를 찾을 수 없습니다')
+
+  const prev = (user.groupInfo as Record<string, unknown> | null) ?? {}
+  return ((prev.notificationSettings as NotificationSettings) ?? {})
+}
+
 export async function updateNotificationSettings(userId: string, settings: NotificationSettings) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -85,10 +96,30 @@ export interface PushSubscribeInput {
 }
 
 export async function subscribePush(userId: string, input: PushSubscribeInput) {
-  return prisma.pushSubscription.upsert({
-    where: { userId_endpoint: { userId, endpoint: input.endpoint } },
-    update: { p256dh: input.p256dh, auth: input.auth },
-    create: { userId, endpoint: input.endpoint, p256dh: input.p256dh, auth: input.auth },
-    select: { id: true, endpoint: true, createdAt: true },
-  })
+  const [subscription] = await Promise.all([
+    prisma.pushSubscription.upsert({
+      where: { userId_endpoint: { userId, endpoint: input.endpoint } },
+      update: { p256dh: input.p256dh, auth: input.auth },
+      create: { userId, endpoint: input.endpoint, p256dh: input.p256dh, auth: input.auth },
+      select: { id: true, endpoint: true, createdAt: true },
+    }),
+    // 구독 등록과 동시에 push 채널 활성화 (기존 채널 유지하며 push 추가)
+    (async () => {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { groupInfo: true } })
+      const prev = (user?.groupInfo as Record<string, unknown> | null) ?? {}
+      const prevSettings = (prev.notificationSettings as Record<string, unknown>) ?? {}
+      const prevChannels = (prevSettings.channels as string[] | undefined) ?? ['email']
+      if (prevChannels.includes('push')) return
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          groupInfo: {
+            ...prev,
+            notificationSettings: { ...prevSettings, channels: [...prevChannels, 'push'] },
+          } as Prisma.InputJsonValue,
+        },
+      })
+    })(),
+  ])
+  return subscription
 }

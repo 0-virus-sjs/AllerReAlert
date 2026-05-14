@@ -5,16 +5,20 @@ interface ApiOk<T> { success: boolean; data: T }
 // ── 타입 ──────────────────────────────────────────────────
 
 export interface SurveyOptionItem {
-  key?:   string
-  label?: string
-  id?:    string
-  name?:  string
+  key?:        string
+  label?:      string
+  id?:         string
+  name?:       string
+  summary?:    string   // menu_vote: 메뉴 목록 요약 (e.g. "비빔밥 / 된장국")
+  isOriginal?: boolean
 }
 
 export interface SurveyOptions {
-  question?: string
-  choices?:  SurveyOptionItem[]   // need_check
-  items?:    SurveyOptionItem[]   // menu_vote
+  question?:    string
+  choices?:     Array<SurveyOptionItem | string>  // need_check: string[], menu_vote: {id,name}[]
+  items?:       SurveyOptionItem[]                // 수동 생성 설문
+  allergenCode?: number
+  allergenName?: string
 }
 
 export interface SurveyResponseRecord {
