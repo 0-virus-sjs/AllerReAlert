@@ -1,8 +1,30 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type React from 'react'
 import type { MealPlan } from '../types/meal'
 import { AllergenBadge } from './allergen/AllergenBadge'
 
 const KO_DAYS = ['일', '월', '화', '수', '목', '금', '토']
+
+const HOVER_STYLE = `
+  .cal-cell {
+    transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow  0.22s ease;
+    position: relative;
+    z-index: 0;
+  }
+  .cal-cell:not(:disabled):hover {
+    transform: translateY(-6px) scale(1.018);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.13);
+    z-index: 10;
+  }
+  .cal-grid--dragging {
+    user-select: none;
+  }
+  .cal-grid--dragging .cal-cell:not(:disabled):hover {
+    transform: none;
+    box-shadow: none;
+  }
+`
 
 function toDateStr(iso: string) {
   return iso.slice(0, 10)
@@ -83,15 +105,71 @@ export function MonthlyMealCalendar(props: Props) {
   } = props
   const cells = getCalendarCells(month)
 
+  // ── drag-select (selectMode 전용) ──────────────────────────────
+  const dragStartRef  = useRef<string | null>(null)
+  const dragModeRef   = useRef<'add' | 'remove'>('add')
+  const selDatesRef   = useRef(selectedDates)
+  useEffect(() => { selDatesRef.current = selectedDates }, [selectedDates])
+
+  const [dragPreview, setDragPreview] = useState<Set<string>>(new Set())
+  const dragPreviewRef = useRef<Set<string>>(new Set())
+  const isDragging     = dragPreview.size > 0
+
+  const inMonthDates = useMemo(
+    () => cells.filter(c => c.inMonth).map(c => formatDateStr(c.date)),
+    [cells],
+  )
+
+  function getRange(a: string, b: string): Set<string> {
+    const [lo, hi] = a <= b ? [a, b] : [b, a]
+    return new Set(inMonthDates.filter(ds => ds >= lo && ds <= hi))
+  }
+
+  // document mouseup: 드래그 커밋
+  useEffect(() => {
+    if (!selectMode) return
+    function onMouseUp() {
+      if (!dragStartRef.current) return
+      dragPreviewRef.current.forEach(ds => {
+        const isSel = selDatesRef.current?.has(ds) ?? false
+        if (dragModeRef.current === 'add'    && !isSel) onToggleDateSelect?.(ds)
+        if (dragModeRef.current === 'remove' && isSel)  onToggleDateSelect?.(ds)
+      })
+      dragStartRef.current = null
+      const empty = new Set<string>()
+      dragPreviewRef.current = empty
+      setDragPreview(empty)
+    }
+    document.addEventListener('mouseup', onMouseUp)
+    return () => document.removeEventListener('mouseup', onMouseUp)
+  }, [selectMode, onToggleDateSelect])
+
+  function startDrag(ds: string) {
+    dragStartRef.current = ds
+    dragModeRef.current  = selDatesRef.current?.has(ds) ? 'remove' : 'add'
+    const single = new Set([ds])
+    dragPreviewRef.current = single
+    setDragPreview(single)
+  }
+
+  function updateDrag(ds: string) {
+    if (!dragStartRef.current) return
+    const range = getRange(dragStartRef.current, ds)
+    dragPreviewRef.current = range
+    setDragPreview(range)
+  }
+  // ──────────────────────────────────────────────────────────────
+
   return (
     <div
       style={{
         border: '1.5px solid #3A3030',
         borderRadius: 4,
-        overflow: 'hidden',
+        overflow: 'visible',
         background: '#fff',
       }}
     >
+      <style>{HOVER_STYLE}</style>
       {/* 범례 */}
       <div
         style={{
@@ -150,7 +228,10 @@ export function MonthlyMealCalendar(props: Props) {
       </div>
 
       {/* 날짜 셀 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+      <div
+        className={isDragging && selectMode ? 'cal-grid--dragging' : undefined}
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}
+      >
         {cells.map(({ date, inMonth }, idx) => {
           const ds = formatDateStr(date)
           const plan = plans.find((p) => toDateStr(p.date) === ds)
@@ -163,10 +244,13 @@ export function MonthlyMealCalendar(props: Props) {
           const isToday = ds === today
           const dayOfWeek = idx % 7
           const isBulkChecked = selectMode && selectedDates?.has(ds)
+          const isDragPreview = selectMode && dragPreview.has(ds) && inMonth
 
           const bg = !inMonth
             ? '#F4F1EC'
-            : isBulkChecked
+            : isDragPreview
+              ? dragModeRef.current === 'remove' ? '#FFE8EC' : '#FFF7D0'
+              : isBulkChecked
               ? '#FFFBE6'
               : level === 'needs-alt' || level === 'danger'
                 ? '#FDDDE8'
@@ -181,17 +265,20 @@ export function MonthlyMealCalendar(props: Props) {
                         : '#FAFEFF' // no-meal
 
           function handleClick() {
-            if (!inMonth) return
-            if (selectMode && onToggleDateSelect) onToggleDateSelect(ds)
-            else onSelectDate(ds)
+            if (!inMonth || selectMode) return  // selectMode: mousedown+mouseup로 처리
+            onSelectDate(ds)
           }
 
           return (
             <button
               key={idx}
               onClick={handleClick}
+              onMouseDown={(e) => { if (selectMode && inMonth) { e.preventDefault(); startDrag(ds) } }}
+              onMouseEnter={() => { if (selectMode) updateDrag(ds) }}
+              draggable={false}
               disabled={!inMonth}
               type="button"
+              className="cal-cell"
               style={{
                 padding: '4px 6px',
                 minHeight: 110,
@@ -199,13 +286,15 @@ export function MonthlyMealCalendar(props: Props) {
                 border: 'none',
                 borderRight: dayOfWeek < 6 ? '1px solid #E0DBD4' : 'none',
                 borderBottom: '1px solid #E0DBD4',
-                outline: isBulkChecked
-                  ? '2px solid #E8A820'
-                  : isSelected
-                    ? '2px solid #A8D8E8'
-                    : isToday
-                      ? '2px solid #5DBD6A'
-                      : 'none',
+                outline: isDragPreview
+                  ? `2px solid ${dragModeRef.current === 'remove' ? '#E06080' : '#E8A820'}`
+                  : isBulkChecked
+                    ? '2px solid #E8A820'
+                    : isSelected
+                      ? '2px solid #A8D8E8'
+                      : isToday
+                        ? '2px solid #5DBD6A'
+                        : 'none',
                 outlineOffset: -2,
                 cursor: inMonth ? 'pointer' : 'default',
                 textAlign: 'left',
