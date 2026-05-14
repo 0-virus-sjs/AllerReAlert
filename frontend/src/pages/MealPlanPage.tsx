@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Spinner } from 'react-bootstrap'
 import { FlashAlert } from '../components/common/FlashAlert'
 import { getMeals, createMeal, updateMeal, publishMeal, exportMealXlsx, getMealCalendarStatus } from '../services/meals.api'
+import type { CalendarStatusEntry } from '../services/meals.api'
 import type { MealItemInput, MealPlan } from '../types/meal'
 import { MealItemFormModal } from '../components/meal/MealItemFormModal'
 import { PublishModal } from '../components/meal/PublishModal'
@@ -108,9 +109,22 @@ export function MealPlanPage() {
         ? updateMeal(currentPlan.id, localItems)
         : createMeal({ date: selectedDate, items: localItems })
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setIsDirty(false)
       setSaveMsg({ type: 'success', text: '저장되었습니다.' })
+      // T-157: BE 응답의 calendarStatus로 해당 날짜만 즉시 갱신 (재조회 없음)
+      if (data.calendarStatus) {
+        const entry = data.calendarStatus
+        queryClient.setQueryData(
+          ['calendar-status', month],
+          (old: CalendarStatusEntry[] | undefined) =>
+            old
+              ? [...old.filter((e) => e.date !== entry.date), entry].sort((a, b) => a.date.localeCompare(b.date))
+              : [entry],
+        )
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['calendar-status', month] })
+      }
       queryClient.invalidateQueries({ queryKey: ['meals', month] })
       setTimeout(() => setSaveMsg(null), 3000)
     },
@@ -121,7 +135,20 @@ export function MealPlanPage() {
 
   const publishMutation = useMutation({
     mutationFn: (scheduledAt?: string) => publishMeal(currentPlan!.id, scheduledAt),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      // T-157: BE 응답의 calendarStatus로 해당 날짜만 즉시 갱신
+      if (data.calendarStatus) {
+        const entry = data.calendarStatus
+        queryClient.setQueryData(
+          ['calendar-status', month],
+          (old: CalendarStatusEntry[] | undefined) =>
+            old
+              ? [...old.filter((e) => e.date !== entry.date), entry].sort((a, b) => a.date.localeCompare(b.date))
+              : [entry],
+        )
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['calendar-status', month] })
+      }
       queryClient.invalidateQueries({ queryKey: ['meals', month] })
       setShowPublish(false)
       setSaveMsg({ type: 'success', text: '식단이 공개되었습니다.' })
@@ -172,6 +199,7 @@ export function MealPlanPage() {
         await publishMeal(plan.id)
       }
       queryClient.invalidateQueries({ queryKey: ['meals', month] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-status', month] }) // T-157
       setSaveMsg({ type: 'success', text: `${draftPlans.length}개 식단이 공개되었습니다.` })
       setTimeout(() => setSaveMsg(null), 3000)
     } catch {
