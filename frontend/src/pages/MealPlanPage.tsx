@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Spinner } from 'react-bootstrap'
 import { FlashAlert } from '../components/common/FlashAlert'
-import { getMeals, createMeal, updateMeal, publishMeal, exportMealXlsx } from '../services/meals.api'
+import { getMeals, createMeal, updateMeal, publishMeal, exportMealXlsx, getMealCalendarStatus } from '../services/meals.api'
 import type { MealItemInput, MealPlan } from '../types/meal'
 import { MealItemRow } from '../components/meal/MealItemRow'
 import { MealItemFormModal } from '../components/meal/MealItemFormModal'
@@ -67,6 +67,14 @@ export function MealPlanPage() {
     queryFn:  () => getMeals(month),
     staleTime: 5 * 60 * 1000,
   })
+
+  const { data: calendarStatuses = [] } = useQuery({
+    queryKey: ['calendar-status', month],
+    queryFn:  () => getMealCalendarStatus(month),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const statusByDate = new Map(calendarStatuses.map((s) => [s.date, s.status]))
 
   const currentPlan = plans.find((p) => toDateStr(p.date) === selectedDate)
 
@@ -274,10 +282,8 @@ export function MealPlanPage() {
           onSelectDate={selectDate}
           plans={plans}
           getDayLevel={(plan): CalendarDayLevel => {
-            const hasConfirmedAlt = plan.alternatePlans.some((ap) => ap.status === 'confirmed')
-            if (hasConfirmedAlt) return 'alt'
-            if (plan.status === 'draft') return 'draft'
-            return 'normal'
+            const ds = toDateStr(plan.date)
+            return (statusByDate.get(ds) as CalendarDayLevel | undefined) ?? 'draft'
           }}
           selectMode={selectMode}
           selectedDates={selectedDates}
