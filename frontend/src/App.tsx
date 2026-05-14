@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthInit } from './components/auth/AuthInit'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { AppLayout } from './components/layout/AppLayout'
+import { LandingPage } from './pages/LandingPage'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -24,6 +25,7 @@ function App() {
         <AuthInit>
           <Routes>
             {/* 공개 라우트 */}
+            <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/unauthorized" element={<div>403 — 접근 권한 없음</div>} />
@@ -31,7 +33,7 @@ function App() {
             {/* 인증 필요 — 공통 레이아웃 적용 */}
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
-                <Route path="/" element={<DashboardPage />} />
+                <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/notifications" element={<NotificationCenterPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/allergens" element={<AllergenProfilePage />} />
@@ -40,7 +42,7 @@ function App() {
                 <Route element={<ProtectedRoute roles={['guardian']} />}>
                   <Route path="/children" element={<GuardianApprovalsPage />} />
                 </Route>
-                <Route path="/analytics" element={<Navigate to="/" replace />} />
+                <Route path="/analytics" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/alternates" element={<Navigate to="/meals" replace />} />
 
                 {/* 영양사 전용 */}
