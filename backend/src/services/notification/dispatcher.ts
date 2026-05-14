@@ -33,8 +33,23 @@ export async function dispatch(input: DispatchInput): Promise<void> {
 
   // groupInfo.notificationSettings.channels: string[] ('email' | 'push')
   const settings = (user.groupInfo as Record<string, unknown> | null)
-    ?.notificationSettings as { channels?: string[] } | undefined
+    ?.notificationSettings as { channels?: string[]; quietHoursStart?: string; quietHoursEnd?: string } | undefined
   const channels = settings?.channels ?? ['email']  // 기본: 이메일
+
+  // 방해 금지 시간 체크 — 범위 내면 Notification 레코드만 남기고 발송 생략
+  if (isQuietHour(settings?.quietHoursStart, settings?.quietHoursEnd)) {
+    logger.info({ userId: input.userId }, '방해 금지 시간 — 발송 생략')
+    await prisma.notification.create({
+      data: {
+        userId: input.userId,
+        type: input.type as Parameters<typeof prisma.notification.create>[0]['data']['type'],
+        title: input.title,
+        body: input.body,
+        payload: (input.data ?? {}) as Prisma.InputJsonValue,
+      },
+    })
+    return
+  }
 
   // Notification 레코드 생성
   await prisma.notification.create({
@@ -120,4 +135,27 @@ export async function dispatchWithGuardians(input: DispatchInput): Promise<void>
       dispatch({ ...input, userId: guardianId })
     ),
   ])
+}
+
+/**
+ * 현재 시각(KST)이 방해 금지 시간 범위 내인지 확인.
+ * start/end 중 하나라도 없으면 false 반환.
+ * 자정 걸치는 범위(예: 22:00 ~ 07:00)도 처리.
+ */
+function isQuietHour(start?: string, end?: string): boolean {
+  if (!start || !end) return false
+
+  const now = new Date()
+  // KST = UTC+9
+  const kstMinutes = (now.getUTCHours() + 9) % 24 * 60 + now.getUTCMinutes()
+
+  const [sh, sm] = start.split(':').map(Number)
+  const [eh, em] = end.split(':').map(Number)
+  const startMin = sh * 60 + sm
+  const endMin   = eh * 60 + em
+
+  // 자정을 걸치지 않는 경우: start <= now < end
+  if (startMin <= endMin) return kstMinutes >= startMin && kstMinutes < endMin
+  // 자정을 걸치는 경우 (예: 22:00 ~ 07:00): now >= start OR now < end
+  return kstMinutes >= startMin || kstMinutes < endMin
 }
