@@ -63,6 +63,28 @@ export async function exportMealPdf(month: string): Promise<void> {
   URL.revokeObjectURL(url)
 }
 
+// T-151: 영양사 달력 상태 메타데이터
+export type CalendarDayStatus =
+  | 'no-meal'
+  | 'draft'
+  | 'published'
+  | 'needs-review'
+  | 'needs-alt'
+  | 'has-alt'
+
+export interface CalendarStatusEntry {
+  date: string
+  status: CalendarDayStatus
+  hasAlternate: boolean
+  conflictCount: number
+  affectedStudents: number
+}
+
+export async function getMealCalendarStatus(month: string): Promise<CalendarStatusEntry[]> {
+  const { data } = await api.get<ApiOk<CalendarStatusEntry[]>>('/meals/calendar-status', { params: { month } })
+  return data.data
+}
+
 // T-141: 월간 식단 xlsx 다운로드
 export async function exportMealXlsx(month: string): Promise<void> {
   const response = await api.get('/meals/export/xlsx', {

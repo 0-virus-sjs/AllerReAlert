@@ -315,6 +315,77 @@ export async function publishScheduledMealPlans(): Promise<number> {
   return due.length
 }
 
+// ── T-151: 영양사 달력 상태 메타데이터 ───────────────────────────────────────
+
+export type CalendarDayStatus =
+  | 'no-meal'
+  | 'draft'
+  | 'published'
+  | 'needs-review'  // draft + 충돌
+  | 'needs-alt'     // published + 충돌 + 대체없음
+  | 'has-alt'       // published + 충돌 + 대체확정
+
+export interface CalendarStatusEntry {
+  date: string
+  status: CalendarDayStatus
+  hasAlternate: boolean
+  conflictCount: number
+  affectedStudents: number
+}
+
+export async function getMealCalendarStatus(
+  orgId: string,
+  month: string,
+): Promise<CalendarStatusEntry[]> {
+  const [year, mon] = month.split('-').map(Number)
+  const from = new Date(Date.UTC(year, mon - 1, 1))
+  const to   = new Date(Date.UTC(year, mon, 1))
+
+  // 월간 식단 + 대체식단 확정 여부
+  const plans = await prisma.mealPlan.findMany({
+    where: { orgId, date: { gte: from, lt: to } },
+    select: {
+      date: true,
+      status: true,
+      alternatePlans: { select: { status: true } },
+      items: {
+        select: {
+          id: true,
+          allergens: { select: { allergenId: true } },
+        },
+      },
+    },
+    orderBy: { date: 'asc' },
+  })
+
+  if (plans.length === 0) return []
+
+  // 충돌 스캔 (draft + published 포함)
+  const { runMonthlyConflictScan } = await import('../allergy-engine/engine')
+  const conflictResults = await runMonthlyConflictScan(orgId, month)
+  const conflictByDate = new Map(conflictResults.map((r) => [r.date, r]))
+
+  return plans.map((plan) => {
+    const ds = plan.date.toISOString().slice(0, 10)
+    const conflict = conflictByDate.get(ds)
+    const conflictCount    = conflict?.conflictCount    ?? 0
+    const affectedStudents = conflict?.affectedStudents ?? 0
+    const hasConfirmedAlt  = plan.alternatePlans.some((ap) => ap.status === 'confirmed')
+
+    let status: CalendarDayStatus
+    if (plan.status === 'published') {
+      if (conflictCount === 0) status = 'published'
+      else if (hasConfirmedAlt) status = 'has-alt'
+      else status = 'needs-alt'
+    } else {
+      // draft
+      status = conflictCount > 0 ? 'needs-review' : 'draft'
+    }
+
+    return { date: ds, status, hasAlternate: hasConfirmedAlt, conflictCount, affectedStudents }
+  })
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function deleteMealPlan(id: string, userId: string, orgId: string) {
