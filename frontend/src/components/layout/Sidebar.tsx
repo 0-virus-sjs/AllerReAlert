@@ -16,24 +16,24 @@ interface NavItem {
 
 const NAV_ITEMS: Record<UserRole, NavItem[]> = {
   student: [
-    { to: '/',              label: '식단 조회',    icon: faUtensils },
+    { to: '/dashboard',       label: '식단 조회',    icon: faUtensils },
     { to: '/allergens',     label: '알레르기 등록', icon: faTriangleExclamation },
     { to: '/surveys',       label: '설문·투표',    icon: faClipboardList },
     { to: '/notifications', label: '알림',         icon: faBell },
   ],
   staff: [
-    { to: '/',              label: '식단 조회',    icon: faUtensils },
+    { to: '/dashboard',       label: '식단 조회',    icon: faUtensils },
     { to: '/allergens',     label: '알레르기 등록', icon: faTriangleExclamation },
     { to: '/surveys',       label: '설문·투표',    icon: faClipboardList },
     { to: '/notifications', label: '알림',         icon: faBell },
   ],
   guardian: [
-    { to: '/',              label: '식단 조회',    icon: faUtensils },
+    { to: '/dashboard',       label: '식단 조회',    icon: faUtensils },
     { to: '/children',      label: '자녀 알레르기', icon: faChild },
     { to: '/notifications', label: '알림',         icon: faBell },
   ],
   nutritionist: [
-    { to: '/',                  label: '대시보드',  icon: faGaugeHigh },
+    { to: '/dashboard',         label: '대시보드',  icon: faGaugeHigh },
     { to: '/meals',             label: '식단 관리', icon: faCalendarDays },
     { to: '/survey-management', label: '설문 관리', icon: faClipboardCheck },
     { to: '/notifications',     label: '알림',      icon: faBell },

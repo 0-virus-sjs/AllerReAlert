@@ -50,7 +50,7 @@ export function LoginPage() {
       }
 
       setAuth(data.data.accessToken, user)
-      navigate('/', { replace: true })
+      navigate('/dashboard', { replace: true })
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { error?: { message?: string } } } })
