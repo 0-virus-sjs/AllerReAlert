@@ -43,7 +43,7 @@ interface Props {
 }
 
 export function MonthlyMealCalendar(props: Props) {
-  const { month, today, selectedDate, onSelectDate, plans, getDayLevel,
+  const { month, today, selectedDate, onSelectDate, plans, confirmedIds, getDayLevel,
           selectMode, selectedDates, onToggleDateSelect } = props
   const cells = getCalendarCells(month)
 
