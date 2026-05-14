@@ -1,4 +1,5 @@
 import type { MealPlan } from '../types/meal'
+import { AllergenBadge } from './allergen/AllergenBadge'
 
 const KO_DAYS = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -34,11 +35,12 @@ interface Props {
   selectedDate: string                                              // 'YYYY-MM-DD'
   onSelectDate: (date: string) => void
   plans: MealPlan[]
+  confirmedIds?: Set<string>
   getDayLevel?: (plan: MealPlan) => CalendarDayLevel                // 미지정 시 normal
 }
 
 export function MonthlyMealCalendar(props: Props) {
-  const { month, today, selectedDate, onSelectDate, plans, getDayLevel } = props
+  const { month, today, selectedDate, onSelectDate, plans, confirmedIds, getDayLevel } = props
   const cells = getCalendarCells(month)
 
   return (
@@ -115,7 +117,7 @@ export function MonthlyMealCalendar(props: Props) {
               type="button"
               style={{
                 padding: '4px 6px',
-                minHeight: 72,
+                minHeight: 110,
                 background: bg,
                 border: 'none',
                 borderRight: dayOfWeek < 6 ? '1px solid #E0DBD4' : 'none',
@@ -199,22 +201,36 @@ export function MonthlyMealCalendar(props: Props) {
               )}
 
               {plan && inMonth && plan.items.slice(0, 2).map((item, j) => (
-                <div
-                  key={j}
-                  style={{
-                    fontSize: 9,
-                    color: '#444',
-                    lineHeight: 1.3,
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  {item.name}
+                <div key={j} style={{ marginBottom: 3 }}>
+                  <div
+                    style={{
+                      fontSize: 13.5,
+                      color: item.allergens.some((a) => confirmedIds?.has(a.allergen.id))
+                        ? '#C04060'
+                        : '#444',
+                      lineHeight: 1.3,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {item.name}
+                  </div>
+                  {item.allergens.length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 1, marginTop: 1 }}>
+                      {item.allergens.map((a) => (
+                        <AllergenBadge
+                          key={a.allergen.id}
+                          allergen={a.allergen}
+                          dangerous={confirmedIds?.has(a.allergen.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
               {plan && plan.items.length > 2 && (
-                <div style={{ fontSize: 8.5, color: '#999' }}>
+                <div style={{ fontSize: 9, color: '#999' }}>
                   +{plan.items.length - 2}개
                 </div>
               )}
