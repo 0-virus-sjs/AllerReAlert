@@ -253,7 +253,7 @@ export function MonthlyMealCalendar(props: Props) {
                   <div key={j} style={{ marginBottom: 3 }}>
                     <div
                       style={{
-                        fontSize: 16,
+                        fontSize: 14,
                         fontWeight: 600,
                         color: item.allergens.some((a) => confirmedIds?.has(a.allergen.id))
                           ? '#C04060'
