@@ -7,10 +7,8 @@ import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { MealPlanPage } from './pages/MealPlanPage'
-import { AlternateMealPage } from './pages/AlternateMealPage'
 import { AllergenProfilePage } from './pages/AllergenProfilePage'
 import { NotificationCenterPage } from './pages/NotificationCenterPage'
-import { AIMealPlanPage } from './pages/AIMealPlanPage'
 import { SurveyPage } from './pages/SurveyPage'
 import { SurveyManagementPage } from './pages/SurveyManagementPage'
 import { AdminPanelPage }         from './pages/AdminPanelPage'
@@ -43,12 +41,12 @@ function App() {
                   <Route path="/children" element={<GuardianApprovalsPage />} />
                 </Route>
                 <Route path="/analytics" element={<Navigate to="/" replace />} />
-                <Route path="/alternates" element={<AlternateMealPage />} />
+                <Route path="/alternates" element={<Navigate to="/meals" replace />} />
 
                 {/* 영양사 전용 */}
                 <Route element={<ProtectedRoute roles={['nutritionist']} />}>
                   <Route path="/meals"              element={<MealPlanPage />} />
-                  <Route path="/ai"                 element={<AIMealPlanPage />} />
+                  <Route path="/ai"                 element={<Navigate to="/meals" replace />} />
                   <Route path="/survey-management"  element={<SurveyManagementPage />} />
                 </Route>
 

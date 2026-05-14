@@ -3,8 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core'
 import {
   faUtensils, faTriangleExclamation, faClipboardList, faBell,
-  faChild, faGaugeHigh, faCalendarDays, faRobot,
-  faArrowRightArrowLeft, faClipboardCheck,
+  faChild, faGaugeHigh, faCalendarDays, faClipboardCheck,
   faUsers, faSchool, faBookMedical, faClockRotateLeft,
 } from '@fortawesome/free-solid-svg-icons'
 import type { UserRole } from '../../types/auth'
@@ -34,12 +33,10 @@ const NAV_ITEMS: Record<UserRole, NavItem[]> = {
     { to: '/notifications', label: '알림',         icon: faBell },
   ],
   nutritionist: [
-    { to: '/',                  label: '대시보드',     icon: faGaugeHigh },
-    { to: '/meals',             label: '식단 관리',    icon: faCalendarDays },
-    { to: '/ai',                label: 'AI 식단 생성', icon: faRobot },
-    { to: '/alternates',        label: '대체 식단',    icon: faArrowRightArrowLeft },
-    { to: '/survey-management', label: '설문 관리',    icon: faClipboardCheck },
-    { to: '/notifications',     label: '알림',         icon: faBell },
+    { to: '/',                  label: '대시보드',  icon: faGaugeHigh },
+    { to: '/meals',             label: '식단 관리', icon: faCalendarDays },
+    { to: '/survey-management', label: '설문 관리', icon: faClipboardCheck },
+    { to: '/notifications',     label: '알림',      icon: faBell },
   ],
   admin: [
     { to: '/admin/users',     label: '사용자 관리',    icon: faUsers },
