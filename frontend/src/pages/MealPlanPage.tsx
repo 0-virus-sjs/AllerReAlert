@@ -219,10 +219,6 @@ export function MealPlanPage() {
     navigate(`/ai-meal-plan?startDate=${startDate}&endDate=${endDate}`)
   }
 
-  // T-153: 패널의 단일 날짜 AI 초안 생성
-  function handleAiDraftSingle() {
-    navigate(`/ai-meal-plan?startDate=${selectedDate}&endDate=${selectedDate}`)
-  }
 
   return (
     <div className="p-4">
@@ -321,7 +317,10 @@ export function MealPlanPage() {
             isLoading={isLoading}
             onSave={() => saveMutation.mutate()}
             onPublish={() => setShowPublish(true)}
-            onAiDraft={handleAiDraftSingle}
+            onAiSaved={() => {
+              queryClient.invalidateQueries({ queryKey: ['meals', month] })
+              queryClient.invalidateQueries({ queryKey: ['calendar-status', month] })
+            }}
             onAddItem={() => setShowAddModal(true)}
             onEditItem={(idx) => setEditingIndex(idx)}
             onDeleteItem={(idx) => {

@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { Spinner } from 'react-bootstrap'
 import type { MealPlan, MealItemInput } from '../../types/meal'
 import type { CalendarStatusEntry } from '../../services/meals.api'
 import { MealItemRow } from './MealItemRow'
+import { PanelAiSection } from './PanelAiSection'
 
 interface Props {
   date: string
@@ -14,7 +16,7 @@ interface Props {
   isLoading: boolean
   onSave: () => void
   onPublish: () => void
-  onAiDraft: () => void
+  onAiSaved: () => void
   onAddItem: () => void
   onEditItem: (index: number) => void
   onDeleteItem: (index: number) => void
@@ -23,8 +25,10 @@ interface Props {
 export function DayDetailPanel({
   date, plan, calendarStatus, localItems, isDirty,
   isSaving, isPublishing, isLoading,
-  onSave, onPublish, onAiDraft, onAddItem, onEditItem, onDeleteItem,
+  onSave, onPublish, onAiSaved, onAddItem, onEditItem, onDeleteItem,
 }: Props) {
+  const [showAi, setShowAi] = useState(false)
+
   const uniqueAllergens = Array.from(
     new Set((plan?.items ?? []).flatMap((it) => it.allergens.map((a) => a.allergen.name))),
   )
@@ -143,15 +147,26 @@ export function DayDetailPanel({
               )}
             </div>
 
+            {/* AI 생성 섹션 */}
+            {showAi && (
+              <PanelAiSection
+                date={date}
+                onSaved={() => { onAiSaved(); setShowAi(false) }}
+                onClose={() => setShowAi(false)}
+              />
+            )}
+
             {/* 액션 버튼 */}
             <div className="d-flex flex-column gap-2 mt-auto">
-              <button
-                className="btn btn-sm w-100"
-                style={{ border: '1px solid #E88FAA', color: '#C06080', fontSize: 12 }}
-                onClick={onAiDraft}
-              >
-                AI 초안 생성
-              </button>
+              {!showAi && (
+                <button
+                  className="btn btn-sm w-100"
+                  style={{ border: '1px solid #E88FAA', color: '#C06080', fontSize: 12 }}
+                  onClick={() => setShowAi(true)}
+                >
+                  AI 초안 생성
+                </button>
+              )}
               <div className="d-flex gap-2">
                 <button
                   className="btn btn-sm flex-fill"
