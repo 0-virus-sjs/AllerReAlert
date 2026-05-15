@@ -16,8 +16,6 @@ export function AllergenBadge({
   autoTagged = false,
   size = 'sm',
 }: Props) {
-  // const bg = dangerous ? 'danger' : ''
-  const text = '#000000'
   const fs = size === 'sm' ? '0.65rem' : '0.75rem'
   const label = `${allergen.code}. ${allergen.name}${autoTagged ? ' (자동)' : ''}`
 
@@ -36,10 +34,10 @@ export function AllergenBadge({
         className="me-1"
         style={{
           fontSize: fs,
-          backgroundColor: dangerous ? 'danger' : '#cae9ff',
+          backgroundColor: dangerous ? '#f8d7da' : '#cae9ff',
           borderRadius: 10,
-          border: '1px solid #000000',
-          color: text,
+          border: dangerous ? '1px solid #dc3545' : '1px solid #adb5bd',
+          color: dangerous ? '#842029' : '#000000',
           cursor: 'default',
           opacity: autoTagged && !dangerous ? 0.75 : 1,
         }}

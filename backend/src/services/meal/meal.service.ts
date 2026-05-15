@@ -357,6 +357,7 @@ export interface CalendarStatusEntry {
   hasAlternate: boolean
   conflictCount: number
   affectedStudents: number
+  conflictAllergenIds: string[]
 }
 
 // T-157: 단일 날짜의 CalendarStatusEntry 계산 (저장·수정·공개 응답에 포함)
@@ -366,10 +367,13 @@ async function buildDayCalendarStatus(
   planStatus: string,
   alternatePlans: Array<{ status: string }>,
 ): Promise<CalendarStatusEntry> {
-  const conflict = await runDayConflictScan(orgId, dateStr)
+  const conflict = await runDayConflictScan(orgId, dateStr, ['student' as const])
   const conflictCount    = conflict?.conflictCount    ?? 0
   const affectedStudents = conflict?.affectedStudents ?? 0
   const hasConfirmedAlt  = alternatePlans.some((ap) => ap.status === 'confirmed')
+  const conflictAllergenIds = conflict
+    ? [...new Set(conflict.matches.flatMap((m) => m.matchedItems.flatMap((mi) => mi.matchedAllergens.map((a) => a.allergenId))))]
+    : []
 
   let status: CalendarDayStatus
   if (planStatus === 'published') {
@@ -380,7 +384,7 @@ async function buildDayCalendarStatus(
     status = conflictCount > 0 ? 'needs-review' : 'draft'
   }
 
-  return { date: dateStr, status, hasAlternate: hasConfirmedAlt, conflictCount, affectedStudents }
+  return { date: dateStr, status, hasAlternate: hasConfirmedAlt, conflictCount, affectedStudents, conflictAllergenIds }
 }
 
 export async function getMealCalendarStatus(
@@ -412,7 +416,7 @@ export async function getMealCalendarStatus(
 
   // 충돌 스캔 (draft + published 포함)
   const { runMonthlyConflictScan } = await import('../allergy-engine/engine')
-  const conflictResults = await runMonthlyConflictScan(orgId, month)
+  const conflictResults = await runMonthlyConflictScan(orgId, month, ['draft', 'published'], ['student' as const])
   const conflictByDate = new Map(conflictResults.map((r) => [r.date, r]))
 
   return plans.map((plan) => {
@@ -421,6 +425,9 @@ export async function getMealCalendarStatus(
     const conflictCount    = conflict?.conflictCount    ?? 0
     const affectedStudents = conflict?.affectedStudents ?? 0
     const hasConfirmedAlt  = plan.alternatePlans.some((ap) => ap.status === 'confirmed')
+    const conflictAllergenIds = conflict
+      ? [...new Set(conflict.matches.flatMap((m) => m.matchedItems.flatMap((mi) => mi.matchedAllergens.map((a) => a.allergenId))))]
+      : []
 
     let status: CalendarDayStatus
     if (plan.status === 'published') {
@@ -432,7 +439,7 @@ export async function getMealCalendarStatus(
       status = conflictCount > 0 ? 'needs-review' : 'draft'
     }
 
-    return { date: ds, status, hasAlternate: hasConfirmedAlt, conflictCount, affectedStudents }
+    return { date: ds, status, hasAlternate: hasConfirmedAlt, conflictCount, affectedStudents, conflictAllergenIds }
   })
 }
 
