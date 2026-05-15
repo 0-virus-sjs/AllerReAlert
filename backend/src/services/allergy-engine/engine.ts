@@ -1,3 +1,4 @@
+import { type UserRole } from '@prisma/client'
 import { prisma } from '../../lib/prisma'
 import { matchAllergens, type MatchResult } from './matcher'
 
@@ -85,10 +86,12 @@ export async function runAllergenCheck(
 /**
  * 특정 날짜 식단에 대해 알레르기 충돌을 판정한다 (T-157).
  * draft·published 모두 대상. 식단이 없으면 null 반환.
+ * roles 지정 시 해당 역할의 사용자만 대조 (예: ['student']).
  */
 export async function runDayConflictScan(
   orgId: string,
   date: string,  // YYYY-MM-DD
+  roles?: UserRole[],
 ): Promise<DayConflictResult | null> {
   const [y, m, d] = date.split('-').map(Number)
   const from = new Date(Date.UTC(y, m - 1, d))
@@ -109,8 +112,12 @@ export async function runDayConflictScan(
 
   if (!mealPlan) return null
 
+  const userWhere = roles
+    ? { orgId, role: { in: roles } }
+    : { orgId }
+
   const userAllergens = await prisma.userAllergen.findMany({
-    where: { user: { orgId }, status: 'confirmed' },
+    where: { user: userWhere, status: 'confirmed' },
     include: { user: { select: { id: true, orgId: true, role: true } } },
   })
 
@@ -151,11 +158,13 @@ export async function runDayConflictScan(
 /**
  * 월간 모든 날짜에 대해 일괄 알레르기 충돌을 판정한다 (T-152).
  * statuses 미지정 시 draft·published 모두 포함.
+ * roles 지정 시 해당 역할의 사용자만 대조 (예: ['student']).
  */
 export async function runMonthlyConflictScan(
   orgId: string,
   month: string,  // YYYY-MM
   statuses: ('draft' | 'published')[] = ['draft', 'published'],
+  roles?: UserRole[],
 ): Promise<DayConflictResult[]> {
   const [year, mon] = month.split('-').map(Number)
   const from = new Date(Date.UTC(year, mon - 1, 1))
@@ -182,8 +191,12 @@ export async function runMonthlyConflictScan(
   if (mealPlans.length === 0) return []
 
   // 해당 조직의 confirmed 알레르기 보유 사용자 (월 단위 공통 로드)
+  const userWhere = roles
+    ? { orgId, role: { in: roles } }
+    : { orgId }
+
   const userAllergens = await prisma.userAllergen.findMany({
-    where: { user: { orgId }, status: 'confirmed' },
+    where: { user: userWhere, status: 'confirmed' },
     include: { user: { select: { id: true, orgId: true, role: true } } },
   })
 

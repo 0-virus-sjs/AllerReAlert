@@ -78,6 +78,7 @@ export interface CalendarStatusEntry {
   hasAlternate: boolean
   conflictCount: number
   affectedStudents: number
+  conflictAllergenIds: string[]
 }
 
 // T-157: 저장·수정·공개 응답에 포함되는 확장 타입

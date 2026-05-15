@@ -25,9 +25,26 @@ export function DayDetailPanel({
   isSaving, isPublishing, isLoading,
   onSave, onPublish, onAddItem, onEditItem, onDeleteItem,
 }: Props) {
-  const uniqueAllergens = Array.from(
-    new Set((plan?.items ?? []).flatMap((it) => it.allergens.map((a) => a.allergen.name))),
+  const conflictIds = new Set(calendarStatus?.conflictAllergenIds ?? [])
+  const allItems = plan?.items ?? []
+  const conflictAllergenNames = Array.from(
+    new Set(
+      allItems.flatMap((it) =>
+        it.allergens
+          .filter((a) => conflictIds.has(a.allergen.id))
+          .map((a) => a.allergen.name),
+      ),
+    ),
   )
+  const otherAllergenNames = Array.from(
+    new Set(
+      allItems.flatMap((it) =>
+        it.allergens
+          .filter((a) => !conflictIds.has(a.allergen.id))
+          .map((a) => a.allergen.name),
+      ),
+    ),
+  ).filter((n) => !conflictAllergenNames.includes(n))
 
   const canPublish = !!plan && plan.status !== 'published' && !isDirty
 
@@ -75,7 +92,7 @@ export function DayDetailPanel({
         </div>
 
         {/* T-156: 충돌 상세 (접이식) */}
-        <PanelConflictInfo plan={plan} calendarStatus={calendarStatus} />
+        <PanelConflictInfo plan={plan} calendarStatus={calendarStatus} schoolAllergenIds={conflictIds} />
       </div>
 
       {/* ── 패널 바디 ───────────────────────────────── */}
@@ -93,6 +110,7 @@ export function DayDetailPanel({
                   key={idx}
                   item={item}
                   allergens={isDirty ? [] : (plan?.items[idx]?.allergens ?? [])}
+                  conflictAllergenIds={conflictIds}
                   onEdit={() => onEditItem(idx)}
                   onDelete={() => onDeleteItem(idx)}
                 />
@@ -127,10 +145,18 @@ export function DayDetailPanel({
             {/* 알레르기 요약 */}
             <div className="small mb-3" style={{ color: '#7A6070', fontSize: 12 }}>
               알레르기:{' '}
-              {uniqueAllergens.length > 0 ? (
-                <strong style={{ color: '#E06080' }}>{uniqueAllergens.join(', ')}</strong>
-              ) : (
+              {conflictAllergenNames.length === 0 && otherAllergenNames.length === 0 ? (
                 <span>없음</span>
+              ) : (
+                <>
+                  {conflictAllergenNames.length > 0 && (
+                    <strong style={{ color: '#C04060' }}>{conflictAllergenNames.join(', ')}</strong>
+                  )}
+                  {conflictAllergenNames.length > 0 && otherAllergenNames.length > 0 && ', '}
+                  {otherAllergenNames.length > 0 && (
+                    <span style={{ color: '#888' }}>{otherAllergenNames.join(', ')}</span>
+                  )}
+                </>
               )}
               {isDirty && (
                 <span className="text-muted ms-1" style={{ fontSize: 10 }}>(저장 후 갱신)</span>

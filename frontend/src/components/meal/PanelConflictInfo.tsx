@@ -5,14 +5,20 @@ import type { CalendarStatusEntry } from '../../services/meals.api'
 interface Props {
   plan: MealPlan | undefined
   calendarStatus: CalendarStatusEntry | undefined
+  schoolAllergenIds?: Set<string>
 }
 
-export function PanelConflictInfo({ plan, calendarStatus }: Props) {
+export function PanelConflictInfo({ plan, calendarStatus, schoolAllergenIds }: Props) {
   const [expanded, setExpanded] = useState(false)
 
   if (!calendarStatus || calendarStatus.conflictCount === 0) return null
 
-  const conflictItems = (plan?.items ?? []).filter((it) => it.allergens.length > 0)
+  const conflictItems = (plan?.items ?? [])
+    .map((it) => ({
+      ...it,
+      allergens: it.allergens.filter((a) => schoolAllergenIds?.has(a.allergen.id) ?? false),
+    }))
+    .filter((it) => it.allergens.length > 0)
 
   return (
     <div

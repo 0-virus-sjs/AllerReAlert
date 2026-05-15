@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Spinner } from 'react-bootstrap'
 import { FlashAlert } from '../components/common/FlashAlert'
@@ -11,6 +11,7 @@ import {
   getMealCalendarStatus,
 } from '../services/meals.api'
 import type { CalendarStatusEntry } from '../services/meals.api'
+import { fetchAllergyOverview } from '../services/analytics.api'
 import type { MealItemInput, MealPlan } from '../types/meal'
 import { MealItemFormModal } from '../components/meal/MealItemFormModal'
 import { PublishModal } from '../components/meal/PublishModal'
@@ -96,6 +97,17 @@ export function MealPlanPage() {
     queryFn: () => getMealCalendarStatus(month),
     staleTime: 5 * 60 * 1000,
   })
+
+  const { data: allergyOverview = [] } = useQuery({
+    queryKey: ['analytics-overview'],
+    queryFn: fetchAllergyOverview,
+    staleTime: 60 * 60 * 1000,
+  })
+
+  const schoolAllergenIds = useMemo(
+    () => new Set(allergyOverview.map((item) => item.allergenId)),
+    [allergyOverview],
+  )
 
   const statusByDate = new Map(calendarStatuses.map((s) => [s.date, s.status]))
 
@@ -343,6 +355,7 @@ export function MealPlanPage() {
         selectedDate={selectedDate}
         onSelectDate={selectDate}
         plans={plans}
+        confirmedIds={schoolAllergenIds}
         getDayLevel={(plan): CalendarDayLevel => {
           const ds = toDateStr(plan.date)
           return (statusByDate.get(ds) as CalendarDayLevel | undefined) ?? 'draft'

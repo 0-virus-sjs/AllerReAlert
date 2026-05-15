@@ -199,6 +199,7 @@ export function AnalyticsDashboardPage() {
   const pieData = (overview ?? []).slice(0, 10).map((item) => ({
     name: item.name, value: item.count,
   }))
+  const pieTotal = pieData.reduce((s, d) => s + d.value, 0)
 
   // 항목이 늘어날수록 Legend가 여러 줄로 늘어나므로 높이를 동적으로 확보
   const pieChartHeight = Math.max(280, 200 + Math.ceil(pieData.length / 2) * 26)
@@ -354,8 +355,9 @@ export function AnalyticsDashboardPage() {
                         </Pie>
                         <Tooltip formatter={(v) => [`${v}명`, '보유인원']} />
                         <Legend
-                          formatter={(value, entry) => {
-                            const pct = ((entry as { payload?: { percent?: number } }).payload?.percent ?? 0) * 100
+                          formatter={(value) => {
+                            const item = pieData.find((d) => d.name === value)
+                            const pct = pieTotal > 0 && item ? (item.value / pieTotal) * 100 : 0
                             return `${value} ${pct.toFixed(0)}%`
                           }}
                         />
