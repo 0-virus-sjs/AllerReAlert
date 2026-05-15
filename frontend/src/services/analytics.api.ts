@@ -49,6 +49,7 @@ export function analyticsExportUrl(format: 'csv' | 'pdf', month: string): string
 
 export interface SchoolStats {
   totalStudents: number
+  studentsWithAllergy: number
   gender: { male: number; female: number; unknown: number }
   grade: Record<string, number>
 }

@@ -1,0 +1,78 @@
+/* ── Mascot floating 3D animation ─────────────────────── */
+@keyframes float3d {
+  0%, 100% {
+    transform: translateY(0px) rotate(-2deg) scale(1);
+    filter: drop-shadow(0 28px 22px rgba(37, 99, 235, 0.32));
+  }
+  50% {
+    transform: translateY(-28px) rotate(2deg) scale(1.02);
+    filter: drop-shadow(0 52px 32px rgba(37, 99, 235, 0.10));
+  }
+}
+
+.mascot-float {
+  animation: float3d 4.5s ease-in-out infinite;
+  transform-origin: center 90%;
+  will-change: transform, filter;
+}
+
+/* ── Fade-in-up stagger ─────────────────────────────── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(32px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up-1 { animation: fadeInUp 0.65s ease-out 0.0s both; }
+.fade-up-2 { animation: fadeInUp 0.65s ease-out 0.15s both; }
+.fade-up-3 { animation: fadeInUp 0.65s ease-out 0.30s both; }
+.fade-up-4 { animation: fadeInUp 0.65s ease-out 0.45s both; }
+
+/* ── Feature card hover ─────────────────────────────── */
+.feature-card {
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+  cursor: default;
+}
+.feature-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 40px rgba(37, 99, 235, 0.13) !important;
+}
+
+/* ── Step connector line ────────────────────────────── */
+.step-connector {
+  flex: 1;
+  height: 2px;
+  background: linear-gradient(90deg, #BFDBFE, #C4B5FD);
+  margin: 0 8px;
+}
+
+/* ── Navbar glassmorphism ───────────────────────────── */
+.landing-nav {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+/* ── Gradient text ─────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, #2563EB 0%, #7C3AED 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── CTA section gradient ──────────────────────────── */
+.cta-section {
+  background: linear-gradient(135deg, #1D4ED8 0%, #7C3AED 100%);
+}
+
+/* ── Stat chip ─────────────────────────────────────── */
+.stat-chip {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(37, 99, 235, 0.15);
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-size: 0.82rem;
+  color: #1E40AF;
+  font-weight: 600;
+  white-space: nowrap;
+}

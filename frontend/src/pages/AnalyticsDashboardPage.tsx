@@ -94,8 +94,24 @@ function SchoolStatsCard() {
         {/* 총원 */}
         <div>
           <div className="text-muted small mb-1">총 학생 수</div>
-          <span className="fs-3 fw-bold text-primary">{total.toLocaleString()}</span>
-          <span className="text-muted small ms-1">명</span>
+          <div className="d-flex align-items-baseline gap-3 flex-wrap">
+            <span>
+              <span className="fs-3 fw-bold text-primary">{total.toLocaleString()}</span>
+              <span className="text-muted small ms-1">명</span>
+            </span>
+            <span className="d-inline-flex align-items-center gap-1">
+              <span
+                style={{
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: '#E06080', display: 'inline-block', flexShrink: 0,
+                }}
+              />
+              <span className="fw-semibold" style={{ color: '#C04060' }}>
+                {stats.studentsWithAllergy.toLocaleString()}
+              </span>
+              <span className="text-muted small">명 알레르기 보유</span>
+            </span>
+          </div>
         </div>
 
         {/* 성별 분포 */}
@@ -183,6 +199,9 @@ export function AnalyticsDashboardPage() {
   const pieData = (overview ?? []).slice(0, 10).map((item) => ({
     name: item.name, value: item.count,
   }))
+
+  // 항목이 늘어날수록 Legend가 여러 줄로 늘어나므로 높이를 동적으로 확보
+  const pieChartHeight = Math.max(280, 200 + Math.ceil(pieData.length / 2) * 26)
 
   const barData = (demand ?? []).map((item) => ({
     date: item.date.slice(5), count: item.totalCount,
@@ -323,21 +342,23 @@ export function AnalyticsDashboardPage() {
                   {pieData.length === 0 ? (
                     <p className="text-muted text-center py-4">데이터 없음</p>
                   ) : (
-                    <ResponsiveContainer width="100%" height={280}>
+                    <ResponsiveContainer width="100%" height={pieChartHeight}>
                       <PieChart>
                         <Pie
                           data={pieData} cx="50%" cy="50%"
                           innerRadius={60} outerRadius={100} dataKey="value"
-                          label={({ name, percent }) =>
-                            `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                          labelLine={false}
                         >
                           {pieData.map((_, idx) => (
                             <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
                           ))}
                         </Pie>
                         <Tooltip formatter={(v) => [`${v}명`, '보유인원']} />
-                        <Legend />
+                        <Legend
+                          formatter={(value, entry) => {
+                            const pct = ((entry as { payload?: { percent?: number } }).payload?.percent ?? 0) * 100
+                            return `${value} ${pct.toFixed(0)}%`
+                          }}
+                        />
                       </PieChart>
                     </ResponsiveContainer>
                   )}
