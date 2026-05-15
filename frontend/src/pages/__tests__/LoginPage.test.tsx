@@ -17,7 +17,7 @@ function renderLogin(state?: { signupSuccess?: boolean }) {
     <MemoryRouter initialEntries={[{ pathname: '/login', state }]}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/" element={<div>대시보드</div>} />
+        <Route path="/dashboard" element={<div>대시보드</div>} />
       </Routes>
     </MemoryRouter>
   )
